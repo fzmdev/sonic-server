@@ -36,10 +36,30 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 测试套件管理控制器
+ *
+ * <p>
+ * 提供测试套件的完整生命周期管理，包括套件执行、监控和结果管理。</p>
+ *
+ * <p>
+ * 核心功能：</p>
+ * <ul>
+ * <li>测试套件的CRUD操作</li>
+ * <li>测试套件执行控制（启动、停止、暂停）</li>
+ * <li>测试套件配置管理（设备、用例、环境）</li>
+ * <li>测试结果收集和分析</li>
+ * </ul>
+ *
+ * @author Sonic Team
+ * @version 1.0
+ * @since 1.0
+ */
 @Tag(name = "测试套件相关")
 @RestController
 @RequestMapping("/testSuites")
 public class TestSuitesController {
+
     @Autowired
     private TestSuitesService testSuitesService;
     @Autowired
@@ -49,8 +69,8 @@ public class TestSuitesController {
     @Operation(summary = "运行测试套件", description = "运行指定项目的指定测试套件")
     @Parameter(name = "id", description = "测试套件id")
     @GetMapping("/runSuite")
-    public RespModel<Integer> runSuite(@RequestParam(name = "id") int id
-            , HttpServletRequest request) {
+    public RespModel<Integer> runSuite(@RequestParam(name = "id") int id,
+             HttpServletRequest request) {
         String strike = "SYSTEM";
         if (request.getHeader("SonicToken") != null) {
             String token = request.getHeader("SonicToken");
@@ -66,8 +86,8 @@ public class TestSuitesController {
     @Operation(summary = "停止测试套件运行", description = "停止测试套件运行")
     @Parameter(name = "resultId", description = "测试结果Id")
     @GetMapping("/forceStopSuite")
-    public RespModel<String> forceStopSuite(@RequestParam(name = "resultId") int resultId
-            , HttpServletRequest request) {
+    public RespModel<String> forceStopSuite(@RequestParam(name = "resultId") int resultId,
+             HttpServletRequest request) {
         String strike = "SYSTEM";
         if (request.getHeader("SonicToken") != null) {
             String token = request.getHeader("SonicToken");
@@ -78,7 +98,6 @@ public class TestSuitesController {
         }
         return testSuitesService.forceStopSuite(resultId, strike);
     }
-
 
     @WebAspect
     @Operation(summary = "删除测试套件", description = "删除指定id的测试套件")
@@ -104,10 +123,10 @@ public class TestSuitesController {
     @Operation(summary = "查询测试套件列表", description = "用于查询对应项目id下的测试套件列表")
     @Parameter(name = "projectId", description = "项目id")
     @GetMapping("/list")
-    public RespModel<CommentPage<TestSuitesDTO>> findByProjectId(@RequestParam(name = "projectId") int projectId
-            , @RequestParam(name = "name") String name
-            , @RequestParam(name = "page") int page
-            , @RequestParam(name = "pageSize") int pageSize) {
+    public RespModel<CommentPage<TestSuitesDTO>> findByProjectId(@RequestParam(name = "projectId") int projectId,
+             @RequestParam(name = "name") String name,
+             @RequestParam(name = "page") int page,
+             @RequestParam(name = "pageSize") int pageSize) {
         Page<TestSuites> pageable = new Page<>(page, pageSize);
         return new RespModel<>(RespEnum.SEARCH_OK, testSuitesService.findByProjectId(projectId, name, pageable));
     }

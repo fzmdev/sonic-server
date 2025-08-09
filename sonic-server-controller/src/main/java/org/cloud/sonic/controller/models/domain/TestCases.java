@@ -19,10 +19,46 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
+ * 测试用例实体类
+ *
+ * <p>
+ * 该实体类映射test_cases数据库表，代表Sonic测试平台中的测试用例。</p>
+ *
+ * <p>
+ * 测试用例核心功能：</p>
+ * <ul>
+ * <li>测试用例基本信息管理</li>
+ * <li>用例执行步骤组织</li>
+ * <li>用例版本和历史追踪</li>
+ * <li>用例分类和标签管理</li>
+ * </ul>
+ *
+ * <p>
+ * 用例组织结构：</p>
+ * <ul>
+ * <li>项目级别分组</li>
+ * <li>平台类型分类</li>
+ * <li>功能模块归属</li>
+ * <li>优先级设定</li>
+ * </ul>
+ *
+ * <p>
+ * 关键字段说明：</p>
+ * <ul>
+ * <li>projectId: 所属项目ID</li>
+ * <li>platform: 平台类型</li>
+ * <li>moduleId: 功能模块ID</li>
+ * <li>name: 用例名称</li>
+ * <li>designer: 用例设计者</li>
+ * <li>createTime/editTime: 创建和修改时间</li>
+ * </ul>
+ *
  * @author JayWenStar
+ * @version 1.0
  * @since 2021-12-17
+ * @see TestCasesDTO 测试用例数据传输对象
  */
-@Schema(name ="TestCases对象", description = "")
+@Schema(name = "TestCases对象", description = "测试用例实体，管理测试平台的测试用例信息")
 @Data
 @Accessors(chain = true)
 @Builder

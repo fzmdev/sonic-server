@@ -43,10 +43,30 @@ import java.util.List;
  * @des
  * @date 2021/9/19 11:45
  */
+/**
+ * 测试步骤管理控制器
+ *
+ * <p>
+ * 管理测试用例中的具体操作步骤，是测试执行的基本单元。</p>
+ *
+ * <p>
+ * 主要功能：</p>
+ * <ul>
+ * <li>测试步骤的创建、编辑、删除</li>
+ * <li>步骤排序和组织</li>
+ * <li>步骤模板和复用</li>
+ * <li>步骤参数化配置</li>
+ * </ul>
+ *
+ * @author Sonic Team
+ * @version 1.0
+ * @since 1.0
+ */
 @Tag(name = "操作步骤相关")
 @RestController
 @RequestMapping("/steps")
 public class StepsController {
+
     @Autowired
     private StepsService stepsService;
     @Autowired
@@ -55,16 +75,16 @@ public class StepsController {
     @WebAspect
     @Operation(summary = "查找步骤列表", description = "查找对应用例id下的步骤列表（分页）")
     @Parameters(value = {
-            @Parameter(name = "projectId", description = "项目id"),
-            @Parameter(name = "platform", description = "平台"),
-            @Parameter(name = "page", description = "页码"),
-            @Parameter(name = "pageSize", description = "页数据大小")
+        @Parameter(name = "projectId", description = "项目id"),
+        @Parameter(name = "platform", description = "平台"),
+        @Parameter(name = "page", description = "页码"),
+        @Parameter(name = "pageSize", description = "页数据大小")
     })
     @GetMapping("/list")
     public RespModel<CommentPage<StepsDTO>> findAll(@RequestParam(name = "projectId") int projectId,
-                                                    @RequestParam(name = "platform") int platform,
-                                                    @RequestParam(name = "page") int page,
-                                                    @RequestParam(name = "pageSize") int pageSize) {
+            @RequestParam(name = "platform") int platform,
+            @RequestParam(name = "page") int page,
+            @RequestParam(name = "pageSize") int pageSize) {
         Page<Steps> pageable = new Page<>(page, pageSize);
         return new RespModel<>(RespEnum.SEARCH_OK, stepsService.findByProjectIdAndPlatform(projectId, platform, pageable));
     }
@@ -141,18 +161,18 @@ public class StepsController {
     @WebAspect
     @Operation(summary = "搜索查找步骤列表", description = "查找对应用例id下的步骤列表（分页）")
     @Parameters(value = {
-            @Parameter(name = "projectId", description = "项目id"),
-            @Parameter(name = "platform", description = "平台"),
-            @Parameter(name = "page", description = "页码"),
-            @Parameter(name = "pageSize", description = "页数据大小"),
-            @Parameter(name = "searchContent", description = "搜索文本")
+        @Parameter(name = "projectId", description = "项目id"),
+        @Parameter(name = "platform", description = "平台"),
+        @Parameter(name = "page", description = "页码"),
+        @Parameter(name = "pageSize", description = "页数据大小"),
+        @Parameter(name = "searchContent", description = "搜索文本")
     })
     @GetMapping("/search/list")
     public RespModel<CommentPage<StepsDTO>> searchFindAll(@RequestParam(name = "projectId") int projectId,
-                                                          @RequestParam(name = "platform") int platform,
-                                                          @RequestParam(name = "page") int page,
-                                                          @RequestParam(name = "pageSize") int pageSize,
-                                                          @RequestParam(name = "searchContent") String searchContent) {
+            @RequestParam(name = "platform") int platform,
+            @RequestParam(name = "page") int page,
+            @RequestParam(name = "pageSize") int pageSize,
+            @RequestParam(name = "searchContent") String searchContent) {
         return new RespModel<>(RespEnum.SEARCH_OK, stepsService.searchFindByProjectIdAndPlatform(projectId, platform,
                 page, pageSize, searchContent));
     }
@@ -160,13 +180,11 @@ public class StepsController {
     @WebAspect
     @Operation(summary = "复制步骤", description = "测试用例复制其中一个步骤")
     @Parameters(value = {
-            @Parameter(name = "id", description = "用例中需要被复制步骤Id"),
-            @Parameter(name = "toLast", description = "是否拷贝用例到最后一行", example = "true"),
-    })
+        @Parameter(name = "id", description = "用例中需要被复制步骤Id"),
+        @Parameter(name = "toLast", description = "是否拷贝用例到最后一行", example = "true"),})
     @GetMapping("/copy/steps")
     public RespModel<String> copyStepsIdByCase(@RequestParam(name = "id") int stepId,
-                                               @RequestParam(name = "toLast", defaultValue = "true", required = false)
-                                                       boolean toLast) {
+            @RequestParam(name = "toLast", defaultValue = "true", required = false) boolean toLast) {
         stepsService.copyStepsIdByCase(stepId, toLast);
         return new RespModel<>(RespEnum.COPY_OK);
     }
@@ -174,9 +192,8 @@ public class StepsController {
     @WebAspect
     @Operation(summary = "开关步骤", description = "设置步骤的启用状态")
     @Parameters(value = {
-            @Parameter(name = "id", description = "用例id"),
-            @Parameter(name = "type", description = "状态"),
-    })
+        @Parameter(name = "id", description = "用例id"),
+        @Parameter(name = "type", description = "状态"),})
     @GetMapping("/switchStep")
     public RespModel switchStep(@RequestParam(name = "id") int id, @RequestParam(name = "type") int type) {
         if (stepsService.switchStep(id, type)) {
@@ -190,8 +207,7 @@ public class StepsController {
     @Operation(summary = "将新增的步骤排序到指定的步骤之前或之后", description = "将当前用例的最后一个步骤拖拽到指定步骤之前或之后")
     @GetMapping("/stepSortTarget")
     public RespModel<String> stepSortTarget(@RequestParam(name = "targetStepId") int targetStepId,
-                                            @RequestParam(name = "addToTargetNext", defaultValue = "false")
-                                                    boolean addToTargetNext) {
+            @RequestParam(name = "addToTargetNext", defaultValue = "false") boolean addToTargetNext) {
         StepsDTO stepsDTO = stepsService.findById(targetStepId);
         StepSort stepSort = new StepSort();
         stepSort.setDirection("up");

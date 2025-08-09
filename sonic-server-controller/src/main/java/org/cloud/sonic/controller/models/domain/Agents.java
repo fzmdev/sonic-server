@@ -18,10 +18,47 @@ import org.cloud.sonic.controller.tools.NullableIntArrayTypeHandler;
 import java.io.Serializable;
 
 /**
+ * Agent端实体类
+ *
+ * <p>
+ * 该实体类映射agents数据库表，代表Sonic测试平台中的Agent端节点。</p>
+ *
+ * <p>
+ * Agent端是Sonic平台的核心组件，主要功能包括：</p>
+ * <ul>
+ * <li>管理连接的真实设备</li>
+ * <li>执行测试指令和操作</li>
+ * <li>设备状态监控和数据收集</li>
+ * <li>与服务端进行通信协调</li>
+ * </ul>
+ *
+ * <p>
+ * 数据库表结构：</p>
+ * <ul>
+ * <li>表名：agents</li>
+ * <li>引擎：InnoDB</li>
+ * <li>字符集：默认UTF8</li>
+ * <li>主键：id（自增）</li>
+ * </ul>
+ *
+ * <p>
+ * 核心字段说明：</p>
+ * <ul>
+ * <li>host: Agent端的IP地址</li>
+ * <li>port: Agent端的服务端口</li>
+ * <li>status: Agent端当前状态（在线/离线）</li>
+ * <li>version: Agent端代码版本号</li>
+ * <li>systemType: 系统类型（Windows/Linux/macOS）</li>
+ * <li>highTemp/highTempTime: 高温监控阈值配置</li>
+ * <li>alertRobotIds: 关联的告警机器人ID数组</li>
+ * </ul>
+ *
  * @author JayWenStar, Eason
+ * @version 1.0
  * @since 2021-12-17
+ * @see AgentsDTO Agent数据传输对象
  */
-@Schema(name ="Agents对象", description = "")
+@Schema(name = "Agents对象", description = "Agent端实体，管理测试平台的Agent节点信息")
 @Data
 @Accessors(chain = true)
 @Builder

@@ -36,6 +36,25 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 页面元素管理控制器
+ *
+ * <p>
+ * 管理测试过程中使用的页面元素（控件），提供元素定位和管理功能。</p>
+ *
+ * <p>
+ * 核心功能：</p>
+ * <ul>
+ * <li>页面元素的增删改查</li>
+ * <li>元素定位策略管理（ID、XPath、CSS等）</li>
+ * <li>元素分组和模块化管理</li>
+ * <li>元素使用情况分析</li>
+ * </ul>
+ *
+ * @author Sonic Team
+ * @version 1.0
+ * @since 1.0
+ */
 @Tag(name = "控件元素管理相关")
 @RestController
 @RequestMapping("/elements")
@@ -47,24 +66,24 @@ public class ElementsController {
     @WebAspect
     @Operation(summary = "查找控件元素列表1", description = "查找对应项目id的控件元素列表")
     @Parameters(value = {
-            @Parameter(name = "projectId", description = "项目id"),
-            @Parameter(name = "eleTypes[]", description = "类型(多个)"),
-            @Parameter(name = "name", description = "控件名称"),
-            @Parameter(name = "value", description = "控件值"),
-            @Parameter(name = "type", description = "类型"),
-            @Parameter(name = "moduleIds", description = "模块ID"),
-            @Parameter(name = "page", description = "页码"),
-            @Parameter(name = "pageSize", description = "页数据大小")
+        @Parameter(name = "projectId", description = "项目id"),
+        @Parameter(name = "eleTypes[]", description = "类型(多个)"),
+        @Parameter(name = "name", description = "控件名称"),
+        @Parameter(name = "value", description = "控件值"),
+        @Parameter(name = "type", description = "类型"),
+        @Parameter(name = "moduleIds", description = "模块ID"),
+        @Parameter(name = "page", description = "页码"),
+        @Parameter(name = "pageSize", description = "页数据大小")
     })
     @GetMapping("/list")
     public RespModel<CommentPage<ElementsDTO>> findAll(@RequestParam(name = "projectId") int projectId,
-                                                       @RequestParam(name = "type", required = false) String type,
-                                                       @RequestParam(name = "eleTypes[]", required = false) List<String> eleTypes,
-                                                       @RequestParam(name = "name", required = false) String name,
-                                                       @RequestParam(name = "value", required = false) String value,
-                                                       @RequestParam(name = "moduleIds[]", required = false) List<Integer> moduleIds,
-                                                       @RequestParam(name = "page") int page,
-                                                       @RequestParam(name = "pageSize") int pageSize) {
+            @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "eleTypes[]", required = false) List<String> eleTypes,
+            @RequestParam(name = "name", required = false) String name,
+            @RequestParam(name = "value", required = false) String value,
+            @RequestParam(name = "moduleIds[]", required = false) List<Integer> moduleIds,
+            @RequestParam(name = "page") int page,
+            @RequestParam(name = "pageSize") int pageSize) {
         Page<Elements> pageable = new Page<>(page, pageSize);
         return new RespModel<>(
                 RespEnum.SEARCH_OK,

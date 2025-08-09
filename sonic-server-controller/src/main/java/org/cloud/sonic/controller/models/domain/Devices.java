@@ -36,10 +36,55 @@ import org.cloud.sonic.controller.models.dto.DevicesDTO;
 import java.io.Serializable;
 
 /**
+ * 设备实体类
+ *
+ * <p>
+ * 该实体类映射devices数据库表，代表Sonic测试平台中的真实移动设备。</p>
+ *
+ * <p>
+ * 设备管理核心功能：</p>
+ * <ul>
+ * <li>设备基本信息管理（型号、系统版本、制造商等）</li>
+ * <li>设备状态监控（在线、调试中、测试中、离线等）</li>
+ * <li>设备占用管理（用户占用、释放控制）</li>
+ * <li>设备性能监控（电池、温度、电压等）</li>
+ * </ul>
+ *
+ * <p>
+ * 支持的设备平台：</p>
+ * <ul>
+ * <li>Android设备（包括鸿蒙系统）</li>
+ * <li>iOS设备</li>
+ * <li>其他移动平台设备</li>
+ * </ul>
+ *
+ * <p>
+ * 数据库表结构：</p>
+ * <ul>
+ * <li>表名：devices</li>
+ * <li>引擎：InnoDB</li>
+ * <li>字符集：默认UTF8</li>
+ * <li>主键：id（自增）</li>
+ * <li>索引：ud_id（设备序列号）</li>
+ * </ul>
+ *
+ * <p>
+ * 关键字段说明：</p>
+ * <ul>
+ * <li>udId: 设备唯一序列号</li>
+ * <li>agentId: 所属Agent端ID</li>
+ * <li>platform: 平台类型（1=Android, 2=iOS）</li>
+ * <li>status: 设备状态</li>
+ * <li>user: 当前占用用户</li>
+ * <li>temperature/voltage/level: 设备性能监控数据</li>
+ * </ul>
+ *
  * @author JayWenStar
+ * @version 1.0
  * @since 2021-12-17
+ * @see DevicesDTO 设备数据传输对象
  */
-@Schema(name ="Devices对象", description = "")
+@Schema(name = "Devices对象", description = "设备实体，管理测试平台的真实移动设备信息")
 @Data
 @Accessors(chain = true)
 @Builder

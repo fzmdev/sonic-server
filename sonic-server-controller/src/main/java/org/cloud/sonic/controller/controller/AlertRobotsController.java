@@ -38,6 +38,43 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 告警通知机器人管理控制器（项目级别）
+ *
+ * <p>
+ * 该控制器专门处理项目级别的告警机器人配置和管理，提供完整的机器人通知功能。</p>
+ *
+ * <p>
+ * 主要功能：</p>
+ * <ul>
+ * <li>项目级别的机器人配置管理</li>
+ * <li>机器人通知场景配置</li>
+ * <li>机器人消息模板自定义</li>
+ * <li>机器人状态和权限管理</li>
+ * </ul>
+ *
+ * <p>
+ * 支持的机器人类型：</p>
+ * <ul>
+ * <li>钉钉机器人</li>
+ * <li>企业微信机器人</li>
+ * <li>飞书机器人</li>
+ * <li>Slack机器人</li>
+ * <li>自定义Webhook机器人</li>
+ * </ul>
+ *
+ * <p>
+ * 通知场景：</p>
+ * <ul>
+ * <li>测试套件执行结果通知</li>
+ * <li>设备异常状态告警</li>
+ * <li>项目构建状态通知</li>
+ * </ul>
+ *
+ * @author Sonic Team
+ * @version 1.0
+ * @since 1.0
+ */
 @Tag(name = "告警通知机器人相关")
 @RestController
 @RequestMapping("/alertRobots")
@@ -58,10 +95,10 @@ public class AlertRobotsController {
     @Operation(summary = "查找项目机器人参数", description = "查找对应项目id的机器人参数列表")
     @GetMapping("/list")
     @Parameters(value = {
-            @Parameter(name = "projectId", description = "项目id"),
-            @Parameter(name = "scene", allowEmptyValue = true, description = "使用场景"),
-            @Parameter(name = "page", description = "页码"),
-            @Parameter(name = "pageSize", description = "页尺寸")
+        @Parameter(name = "projectId", description = "项目id"),
+        @Parameter(name = "scene", allowEmptyValue = true, description = "使用场景"),
+        @Parameter(name = "page", description = "页码"),
+        @Parameter(name = "pageSize", description = "页尺寸")
     })
     public RespModel<CommentPage<AlertRobots>> list(
             @RequestParam(name = "projectId") int projectId,
@@ -76,8 +113,8 @@ public class AlertRobotsController {
     @Operation(summary = "查找项目机器人参数", description = "查找对应项目id的机器人参数列表")
     @GetMapping("/listAll")
     @Parameters(value = {
-            @Parameter(name = "projectId", allowEmptyValue = true, description = "项目id"),
-            @Parameter(name = "scene", allowEmptyValue = true, description = "使用场景")
+        @Parameter(name = "projectId", allowEmptyValue = true, description = "项目id"),
+        @Parameter(name = "scene", allowEmptyValue = true, description = "使用场景")
     })
     public RespModel<List<AlertRobots>> listAll(
             @RequestParam(name = "projectId", required = false, defaultValue = "-1") int projectId,

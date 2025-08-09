@@ -33,24 +33,44 @@ import org.cloud.sonic.controller.services.ResultsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 测试结果管理控制器
+ *
+ * <p>
+ * 管理测试执行结果，提供结果查询、分析和报告功能。</p>
+ *
+ * <p>
+ * 主要功能：</p>
+ * <ul>
+ * <li>测试结果的查询和展示</li>
+ * <li>测试报告生成和导出</li>
+ * <li>测试数据统计和分析</li>
+ * <li>测试结果清理和归档</li>
+ * </ul>
+ *
+ * @author Sonic Team
+ * @version 1.0
+ * @since 1.0
+ */
 @Tag(name = "测试结果相关")
 @RestController
 @RequestMapping("/results")
 public class ResultsController {
+
     @Autowired
     private ResultsService resultsService;
 
     @WebAspect
     @Operation(summary = "查询测试结果列表", description = "查找对应项目id下的测试结果列表")
     @Parameters(value = {
-            @Parameter(name = "projectId", description = "项目id"),
-            @Parameter(name = "page", description = "页码"),
-            @Parameter(name = "pageSize", description = "页数据大小")
+        @Parameter(name = "projectId", description = "项目id"),
+        @Parameter(name = "page", description = "页码"),
+        @Parameter(name = "pageSize", description = "页数据大小")
     })
     @GetMapping("/list")
     public RespModel<CommentPage<Results>> findByProjectId(@RequestParam(name = "projectId") int projectId,
-                                                           @RequestParam(name = "page") int page,
-                                                           @RequestParam(name = "pageSize") int pageSize) {
+            @RequestParam(name = "page") int page,
+            @RequestParam(name = "pageSize") int pageSize) {
         Page<Results> pageable = new Page<>(page, pageSize);
         return new RespModel<>(
                 RespEnum.SEARCH_OK,
@@ -110,14 +130,14 @@ public class ResultsController {
     @WebAspect
     @Operation(summary = "查询报表", description = "查找前端首页报表信息")
     @Parameters(value = {
-            @Parameter(name = "projectId", description = "项目id"),
-            @Parameter(name = "startTime", description = "起始时间"),
-            @Parameter(name = "endTime", description = "结束时间")
+        @Parameter(name = "projectId", description = "项目id"),
+        @Parameter(name = "startTime", description = "起始时间"),
+        @Parameter(name = "endTime", description = "结束时间")
     })
     @GetMapping("/chart")
     public RespModel<JSONObject> chart(@RequestParam(name = "projectId") int projectId,
-                                       @RequestParam(name = "startTime") String startTime,
-                                       @RequestParam(name = "endTime") String endTime) {
+            @RequestParam(name = "startTime") String startTime,
+            @RequestParam(name = "endTime") String endTime) {
         return new RespModel<>(RespEnum.SEARCH_OK, resultsService.chart(startTime, endTime, projectId));
     }
 

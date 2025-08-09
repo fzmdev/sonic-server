@@ -25,6 +25,32 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * SpringDoc OpenAPI 配置类
+ *
+ * <p>
+ * 该配置类用于设置Sonic Controller的API文档生成配置。</p>
+ *
+ * <p>
+ * 主要功能：</p>
+ * <ul>
+ * <li>配置OpenAPI文档的基本信息</li>
+ * <li>设置API文档标题、版本、描述</li>
+ * <li>配置联系人和许可证信息</li>
+ * <li>提供Swagger UI界面</li>
+ * </ul>
+ *
+ * <p>
+ * 访问地址：</p>
+ * <ul>
+ * <li>Swagger UI: /swagger-ui.html</li>
+ * <li>OpenAPI JSON: /v3/api-docs</li>
+ * </ul>
+ *
+ * @author Sonic Team
+ * @version 1.0
+ * @since 1.0
+ */
 @Configuration
 public class SpringDocConfig {
 

@@ -30,9 +30,51 @@ import java.io.IOException;
 import java.util.List;
 
 /**
+ * 设备管理业务逻辑服务接口
+ *
+ * <p>
+ * 该接口定义了设备管理的核心业务逻辑，是Sonic测试平台的关键业务服务。</p>
+ *
+ * <p>
+ * 设备生命周期管理：</p>
+ * <ul>
+ * <li>设备注册与发现</li>
+ * <li>设备状态实时监控</li>
+ * <li>设备配置动态更新</li>
+ * <li>设备资源分配与回收</li>
+ * </ul>
+ *
+ * <p>
+ * 设备占用管理：</p>
+ * <ul>
+ * <li>设备占用与释放控制</li>
+ * <li>占用权限验证</li>
+ * <li>占用超时自动回收</li>
+ * <li>并发占用冲突处理</li>
+ * </ul>
+ *
+ * <p>
+ * 设备查询与筛选：</p>
+ * <ul>
+ * <li>多维度设备筛选（平台、版本、规格等）</li>
+ * <li>设备列表分页查询</li>
+ * <li>设备使用情况统计</li>
+ * <li>设备性能监控数据</li>
+ * </ul>
+ *
+ * <p>
+ * 设备维护功能：</p>
+ * <ul>
+ * <li>设备远程重启控制</li>
+ * <li>设备调试状态管理</li>
+ * <li>设备异常自动处理</li>
+ * <li>设备清理与维护</li>
+ * </ul>
+ *
  * @author ZhouYiXun
- * @des 设备逻辑层
- * @date 2021/8/16 22:51
+ * @version 1.0
+ * @since 2021/8/16
+ * @see Devices 设备实体类
  */
 public interface DevicesService extends IService<Devices> {
 
@@ -49,8 +91,8 @@ public interface DevicesService extends IService<Devices> {
     void updateImg(UpdateDeviceImg updateDeviceImg);
 
     Page<Devices> findAll(List<String> iOSVersion, List<String> androidVersion, List<String> hmVersion, List<String> manufacturer,
-                          List<String> cpu, List<String> size, List<Integer> agentId, List<String> status,
-                          String deviceInfo, Page<Devices> pageable);
+            List<String> cpu, List<String> size, List<Integer> agentId, List<String> status,
+            String deviceInfo, Page<Devices> pageable);
 
     List<Devices> findAll(int platform);
 

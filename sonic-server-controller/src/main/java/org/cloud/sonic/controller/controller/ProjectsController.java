@@ -41,6 +41,25 @@ import java.util.stream.Collectors;
  * @des
  * @date 2021/9/9 22:46
  */
+/**
+ * 项目管理控制器
+ *
+ * <p>
+ * 提供Sonic测试平台的项目管理功能，是系统的核心管理模块。</p>
+ *
+ * <p>
+ * 主要功能：</p>
+ * <ul>
+ * <li>项目的创建、查询、更新、删除操作</li>
+ * <li>项目配置管理</li>
+ * <li>项目权限控制</li>
+ * <li>项目资源统计</li>
+ * </ul>
+ *
+ * @author Sonic Team
+ * @version 1.0
+ * @since 1.0
+ */
 @Tag(name = "项目管理相关")
 @RestController
 @RequestMapping("/projects")

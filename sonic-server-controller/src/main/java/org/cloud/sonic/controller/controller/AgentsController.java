@@ -35,22 +35,67 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * Agent端管理控制器
+ *
+ * <p>
+ * 该控制器提供与Agent端相关的REST API接口，包括：</p>
+ * <ul>
+ * <li>Agent端设备控制和管理</li>
+ * <li>Hub设备位置控制</li>
+ * <li>Agent端信息查询和更新</li>
+ * <li>Agent端状态监控</li>
+ * </ul>
+ *
+ * <p>
+ * Agent是Sonic平台的核心组件，负责：</p>
+ * <ul>
+ * <li>连接和管理真实设备</li>
+ * <li>执行测试指令</li>
+ * <li>设备状态监控和温度管理</li>
+ * <li>设备Hub控制（如果配置）</li>
+ * </ul>
+ *
  * @author ZhouYiXun
- * @des
- * @date 2021/8/28 21:49
+ * @version 1.0
+ * @since 2021/8/28
  */
 @Tag(name = "Agent端相关")
 @RestController
 @RequestMapping("/agents")
 public class AgentsController {
 
+    /**
+     * Agent服务层注入
+     */
     @Autowired
     private AgentsService agentsService;
 
+    /**
+     * Hub设备控制接口
+     *
+     * <p>
+     * 用于控制Agent端连接的Hub设备，可以控制设备的位置切换和类型操作。 Hub是一个硬件设备，可以在多个移动设备之间进行切换。</p>
+     *
+     * <p>
+     * 支持的操作类型：</p>
+     * <ul>
+     * <li>设备位置切换</li>
+     * <li>设备连接状态控制</li>
+     * <li>设备电源管理</li>
+     * </ul>
+     *
+     * @param id Agent的唯一标识符
+     * @param position Hub设备的目标位置（1-N，具体数量取决于Hub型号）
+     * @param type 控制类型，支持多种操作模式
+     * @return 响应结果，包含操作是否成功的信息
+     *
+     * @throws IllegalArgumentException 当参数不合法时抛出
+     * @since 1.0
+     */
     @WebAspect
     @GetMapping("/hubControl")
     public RespModel<?> hubControl(@RequestParam(name = "id") int id, @RequestParam(name = "position") int position,
-                                   @RequestParam(name = "type") String type) {
+            @RequestParam(name = "type") String type) {
         JSONObject result = new JSONObject();
         result.put("msg", "hub");
         result.put("position", position);
@@ -59,6 +104,32 @@ public class AgentsController {
         return new RespModel<>(RespEnum.HANDLE_OK);
     }
 
+    /**
+     * 查询所有Agent端列表
+     *
+     * <p>
+     * 获取系统中所有已注册的Agent端信息，包括：</p>
+     * <ul>
+     * <li>Agent基本信息（名称、IP、端口）</li>
+     * <li>Agent状态（在线/离线）</li>
+     * <li>Agent版本信息</li>
+     * <li>系统类型和配置</li>
+     * <li>温度监控配置</li>
+     * <li>机器人通知配置</li>
+     * </ul>
+     *
+     * <p>
+     * 返回的数据会自动转换为DTO格式，便于前端展示和处理。</p>
+     *
+     * @return Agent端列表的响应结果
+     * <ul>
+     * <li>成功时返回所有Agent的详细信息列表</li>
+     * <li>失败时返回错误信息</li>
+     * </ul>
+     *
+     * @see AgentsDTO Agent数据传输对象
+     * @since 1.0
+     */
     @WebAspect
     @Operation(summary = "查询所有Agent端", description = "获取所有Agent端以及详细信息")
     @GetMapping("/list")
@@ -69,6 +140,37 @@ public class AgentsController {
         );
     }
 
+    /**
+     * 更新Agent配置信息
+     *
+     * <p>
+     * 更新指定Agent的配置参数，支持修改以下信息：</p>
+     * <ul>
+     * <li>Agent显示名称</li>
+     * <li>高温预警阈值设置</li>
+     * <li>高温持续时间阈值</li>
+     * <li>机器人通知配置</li>
+     * <li>告警机器人ID列表</li>
+     * </ul>
+     *
+     * <p>
+     * 温度监控功能说明：</p>
+     * <ul>
+     * <li>highTemp: 设备温度超过此值时触发预警</li>
+     * <li>highTempTime: 高温持续超过此时间（分钟）后发送告警</li>
+     * </ul>
+     *
+     * @param jsonObject Agent配置信息的数据传输对象，包含要更新的字段
+     * @return 更新操作的响应结果
+     * <ul>
+     * <li>成功时返回处理成功信息</li>
+     * <li>失败时返回相应错误码和错误信息</li>
+     * </ul>
+     *
+     * @throws IllegalArgumentException 当传入的参数格式不正确时抛出
+     * @see AgentsDTO Agent数据传输对象
+     * @since 1.0
+     */
     @WebAspect
     @Operation(summary = "修改agent信息", description = "修改agent信息")
     @PutMapping("/update")
@@ -81,6 +183,39 @@ public class AgentsController {
         return new RespModel<>(RespEnum.HANDLE_OK);
     }
 
+    /**
+     * 根据ID查询单个Agent详细信息
+     *
+     * <p>
+     * 根据提供的Agent ID获取对应的Agent详细信息，包括：</p>
+     * <ul>
+     * <li>Agent基本配置（名称、主机、端口等）</li>
+     * <li>Agent当前状态和版本信息</li>
+     * <li>系统类型和密钥配置</li>
+     * <li>温度监控相关配置</li>
+     * <li>机器人通知配置</li>
+     * <li>Hub设备配置状态</li>
+     * </ul>
+     *
+     * <p>
+     * 常用于以下场景：</p>
+     * <ul>
+     * <li>Agent详情页面展示</li>
+     * <li>Agent配置修改前的数据加载</li>
+     * <li>Agent状态检查和监控</li>
+     * </ul>
+     *
+     * @param id Agent的唯一标识符，必须是有效的正整数
+     * @return 查询结果的响应对象
+     * <ul>
+     * <li>成功时返回Agent的完整信息</li>
+     * <li>ID不存在时返回NOT_FOUND错误</li>
+     * </ul>
+     *
+     * @throws IllegalArgumentException 当ID格式不正确时抛出
+     * @see Agents Agent领域模型
+     * @since 1.0
+     */
     @WebAspect
     @Operation(summary = "查询Agent端信息", description = "获取对应id的Agent信息")
     @GetMapping

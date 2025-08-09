@@ -32,8 +32,25 @@ import org.cloud.sonic.controller.models.dto.AlertRobotsDTO;
 
 import java.io.Serializable;
 
-
-@Schema(name = "AlertRobots对象", description = "")
+/**
+ * 告警机器人实体类
+ *
+ * <p>
+ * 该实体类管理Sonic平台的各种告警通知机器人配置。</p>
+ *
+ * <p>
+ * 支持的机器人类型：</p>
+ * <ul>
+ * <li>钉钉机器人</li>
+ * <li>企业微信机器人</li>
+ * <li>飞书机器人</li>
+ * <li>Slack机器人</li>
+ * <li>自定义Webhook</li>
+ * </ul>
+ *
+ * @since 1.0
+ */
+@Schema(name = "AlertRobots对象", description = "告警机器人实体，管理各种通知机器人配置")
 @Data
 @Accessors(chain = true)
 @Builder
