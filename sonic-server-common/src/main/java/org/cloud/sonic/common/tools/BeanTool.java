@@ -13,9 +13,18 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Bean utilities.
+ * Bean 工具类
  *
- * @author JayWenStar
+ * <p>
+ * 对 Spring BeanUtils 的常用能力做了轻量封装：
+ * <ul>
+ * <li>对象属性浅拷贝（忽略 null 值）</li>
+ * <li>集合批量转换</li>
+ * <li>对象属性更新（source 非空字段覆盖 target 对应字段）</li>
+ * <li>获取对象中为 null 的属性名集合</li>
+ * </ul>
+ * 主要用于 DTO 与 Domain 之间的属性转换，避免重复样板代码。
+ * </p>
  */
 public class BeanTool {
 
@@ -23,13 +32,13 @@ public class BeanTool {
     }
 
     /**
-     * Transforms from the source object. (copy same properties only)
+     * 将对象转换为目标类型（浅拷贝，忽略 null 字段）
      *
-     * @param source      source data
-     * @param targetClass target class must not be null
-     * @param <T>         target class type
-     * @return instance with specified type copying from source data; or null if source data is null
-     * @throws BeanToolException if newing target instance failed or copying failed
+     * @param source 源对象
+     * @param targetClass 目标类型，不能为空
+     * @param <T> 目标类型参数
+     * @return 转换后的新实例；当 source 为 null 时返回 null
+     * @throws BeanToolException 构造目标对象或拷贝失败时抛出
      */
     @Nullable
     public static <T> T transformFrom(@Nullable Object source, @NonNull Class<T> targetClass) {
@@ -53,13 +62,13 @@ public class BeanTool {
     }
 
     /**
-     * Transforms from source data collection in batch.
+     * 批量转换集合元素为目标类型（浅拷贝，忽略 null 字段）
      *
-     * @param sources     source data collection
-     * @param targetClass target class must not be null
-     * @param <T>         target class type
-     * @return target collection transforming from source data collection.
-     * @throws BeanToolException if newing target instance failed or copying failed
+     * @param sources 源集合
+     * @param targetClass 目标类型，不能为空
+     * @param <T> 目标类型参数
+     * @return 转换后的目标集合；当 sources 为空时返回空集合
+     * @throws BeanToolException 构造目标对象或拷贝失败时抛出
      */
     @NonNull
     public static <T> List<T> transformFromInBatch(Collection<?> sources, @NonNull Class<T> targetClass) {
@@ -74,11 +83,11 @@ public class BeanTool {
     }
 
     /**
-     * Update properties (non null).
+     * 使用 source 的非空字段更新 target 对应字段
      *
-     * @param source source data must not be null
-     * @param target target data must not be null
-     * @throws BeanToolException if copying failed
+     * @param source 源对象，不能为空
+     * @param target 目标对象，不能为空
+     * @throws BeanToolException 拷贝失败时抛出
      */
     public static void updateProperties(@NonNull Object source, @NonNull Object target) {
         Assert.notNull(source, "source object must not be null");
@@ -93,10 +102,10 @@ public class BeanTool {
     }
 
     /**
-     * Gets null names array of property.
+     * 获取对象中值为 null 的属性名数组
      *
-     * @param source object data must not be null
-     * @return null name array of property
+     * @param source 源对象，不能为空
+     * @return 为 null 的属性名数组
      */
     @NonNull
     private static String[] getNullPropertyNames(@NonNull Object source) {
@@ -104,10 +113,10 @@ public class BeanTool {
     }
 
     /**
-     * Gets null names set of property.
+     * 获取对象中值为 null 的属性名集合
      *
-     * @param source object data must not be null
-     * @return null name set of property
+     * @param source 源对象，不能为空
+     * @return 为 null 的属性名集合
      */
     @NonNull
     private static Set<String> getNullPropertyNameSet(@NonNull Object source) {

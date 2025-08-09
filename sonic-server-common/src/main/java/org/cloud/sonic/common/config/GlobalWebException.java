@@ -35,11 +35,41 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * @des 全局异常拦截
  * @date 2021/8/15 18:26
  */
+/**
+ * Web 层全局异常处理
+ *
+ * <p>
+ * 统一捕获 Controller 层抛出的常见异常并转换为标准的 {@link org.cloud.sonic.common.http.RespModel}
+ * ，保证前后端协议一致性。同时进行必要的日志记录，便于问题排查。
+ * </p>
+ *
+ * <p>
+ * 覆盖的典型异常：
+ * <ul>
+ * <li>{@link org.springframework.web.bind.MissingServletRequestParameterException}
+ * 缺少请求参数</li>
+ * <li>{@link jakarta.validation.ConstraintViolationException} 参数校验不通过</li>
+ * <li>{@link org.springframework.web.bind.MethodArgumentNotValidException}
+ * 请求体校验不通过</li>
+ * <li>{@link org.springframework.http.converter.HttpMessageNotReadableException}
+ * 请求体不可读</li>
+ * <li>{@link org.cloud.sonic.common.exception.SonicException} 业务自定义异常</li>
+ * </ul>
+ * 其他未捕获异常将返回 UNKNOWN_ERROR。
+ * </p>
+ */
 @RestControllerAdvice
 @Order(1)
 public class GlobalWebException {
+
     private final Logger logger = LoggerFactory.getLogger(GlobalWebException.class);
 
+    /**
+     * 统一异常处理入口
+     *
+     * @param exception 捕获到的异常
+     * @return 标准响应模型
+     */
     @ExceptionHandler(Exception.class)
     public RespModel ErrHandler(Exception exception) {
         logger.error(exception.getMessage());

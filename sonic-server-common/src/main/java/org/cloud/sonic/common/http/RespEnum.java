@@ -18,9 +18,13 @@
 package org.cloud.sonic.common.http;
 
 /**
- * @author ZhouYiXun
- * @des 接口响应枚举
- * @date 2021/8/15 18:26
+ * 统一响应码与消息码枚举
+ *
+ * <p>
+ * 用于服务端与客户端之间协议约定：每个枚举常量包含数值型 code 与消息码 message。 其中 message 将由国际化切面
+ * {@link org.cloud.sonic.common.config.CommonResultControllerAdvice}
+ * 根据请求语言转换为最终文案。
+ * </p>
  */
 public enum RespEnum {
     HANDLE_OK(2000, "ok.handle"),

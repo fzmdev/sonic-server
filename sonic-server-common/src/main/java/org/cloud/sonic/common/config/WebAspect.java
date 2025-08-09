@@ -6,9 +6,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * @author ZhouYiXun
- * @des 配合AOP指定对应的接口打印web请求日志
- * @date 2021/8/15 18:26
+ * Web 请求日志切面标记注解
+ *
+ * <p>
+ * 用于标记需要被 AOP 记录入参/出参日志的 Controller 类或方法。 具体日志打印逻辑见 {@link WebAspectConfig}。
+ * </p>
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

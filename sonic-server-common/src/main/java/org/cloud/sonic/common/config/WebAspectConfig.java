@@ -13,31 +13,28 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.util.Arrays;
 
 /**
- * @author ZhouYiXun
- * @des AOP框架搭配注解类，生成对应web请求日志
- * @date 2021/8/15 18:26
+ * Web 请求日志 AOP 配置
+ *
+ * <p>
+ * 拦截标记了 {@link WebAspect} 的类或方法，统一打印 Web 请求的关键信息， 包括：URL、HTTP
+ * 方法、Token、请求类与方法、入参与返回体。默认以 JSON 格式输出， 便于接入 ELK 等日志分析系统。
+ * </p>
  */
 @Aspect
 @Component
 public class WebAspectConfig {
+
     private final Logger logger = LoggerFactory.getLogger(WebAspectConfig.class);
 
     /**
-     * @return void
-     * @author ZhouYiXun
-     * @des 定义切点，注解类webAspect
-     * @date 2021/8/15 23:08
+     * 定义切点：匹配所有被 {@link WebAspect} 注解标记的方法
      */
     @Pointcut("@annotation(WebAspect)")
     public void webAspect() {
     }
 
     /**
-     * @param joinPoint
-     * @return void
-     * @author ZhouYiXun
-     * @des 请求前获取所有信息
-     * @date 2021/8/15 23:08
+     * 请求前记录入参与基本信息
      */
     @Before("webAspect()")
     public void deBefore(JoinPoint joinPoint) throws Throwable {
@@ -54,11 +51,7 @@ public class WebAspectConfig {
     }
 
     /**
-     * @param ret
-     * @return void
-     * @author ZhouYiXun
-     * @des 请求完毕后打印结果
-     * @date 2021/8/15 23:10
+     * 请求成功返回后记录响应结果
      */
     @AfterReturning(returning = "ret", pointcut = "webAspect()")
     public void doAfterReturning(Object ret) throws Throwable {
@@ -68,12 +61,7 @@ public class WebAspectConfig {
     }
 
     /**
-     * @param joinPoint
-     * @param ex
-     * @return void
-     * @author ZhouYiXun
-     * @des 报错的话打印错误信息
-     * @date 2021/8/15 23:11
+     * 异常场景记录错误信息
      */
     @AfterThrowing(throwing = "ex", pointcut = "webAspect()")
     public void error(JoinPoint joinPoint, Exception ex) {
