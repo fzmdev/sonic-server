@@ -73,12 +73,6 @@ public class AgentKeepWsController {
                 return t;
             });
 
-    // 三个 WS 连接管理器
-    private final WsConnection connMain = new WsConnection(WS_URL_MAIN, "main");
-    private final WsConnection connT1 = new WsConnection(WS_URL_TERMINAL, "terminal-1");
-    private final WsConnection connT2 = new WsConnection(WS_URL_SCREEN, "terminal-2");
-
-
     @Autowired
     private AgentsService agentsService;
 
@@ -104,9 +98,9 @@ public class AgentKeepWsController {
             String wsTerminalUrl = StrUtil.format(WS_URL_TERMINAL, host, port, devicePlatform, secretKey, udId, token);
             String wsScreenUrl = StrUtil.format(WS_URL_SCREEN, host, port, devicePlatform, secretKey, udId, token);
 
-            WsConnection connMain = new WsConnection(wsMainUrl, "main");
-            WsConnection connTerminal = new WsConnection(wsTerminalUrl, "terminal-1");
-            WsConnection connScreen = new WsConnection(wsScreenUrl, "terminal-2");
+            WsConnection connMain = new WsConnection(wsMainUrl, udId + "-main");
+            WsConnection connTerminal = new WsConnection(wsTerminalUrl, udId + "-terminal");
+            WsConnection connScreen = new WsConnection(wsScreenUrl, udId + "-screen");
 
             connMain.start();
             connTerminal.start();
