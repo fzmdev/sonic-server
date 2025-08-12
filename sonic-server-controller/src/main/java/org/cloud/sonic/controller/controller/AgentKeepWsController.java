@@ -1,20 +1,3 @@
-/*
- *   sonic-server  Sonic Cloud Real Machine Platform.
- *   Copyright (C) 2022 SonicCloudOrg
- *
- *   This program is free software: you can redistribute it and/or modify
- *   it under the terms of the GNU Affero General Public License as published
- *   by the Free Software Foundation, either version 3 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU Affero General Public License for more details.
- *
- *   You should have received a copy of the GNU Affero General Public License
- *   along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
 package org.cloud.sonic.controller.controller;
 
 import cn.hutool.core.util.StrUtil;
@@ -48,30 +31,38 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
 @Slf4j
 @Tag(name = "Agent端维持Ws")
 @RestController
 @RequestMapping("/agentsKeepWs")
 public class AgentKeepWsController {
 
-    // 1) 原 WS（去掉 @）
+    // 1) 原 WS
     private static final String WS_URL_MAIN = "ws://{}:{}/websockets/{}/{}/{}/{}";
-    // 2) 新增 WS 地址1（去掉 @）
+    // 2) 终端 WS
     private static final String WS_URL_TERMINAL = "ws://{}:{}/websockets/{}/terminal/{}/{}/{}";
-    // 3) 新增 WS 地址2（去掉 @）
+    // 3) 屏幕 WS
     private static final String WS_URL_SCREEN = "ws://{}:{}/websockets/{}/screen/{}/{}/{}";
+
+    // 心跳/重连配置
+    private static final int PING_INTERVAL_SECONDS = 30;
+    private static final int PING_TIMEOUT_SECONDS = 10;
+    private static final int SCHEDULER_THREADS = Math.max(8, Runtime.getRuntime().availableProcessors() * 2);
+    private static final int MAX_RETRY_DELAY_SECONDS = 30;
 
     // 共享 HttpClient + 调度线程池（心跳、重连）
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
     private static final ScheduledExecutorService SCHEDULER =
-            Executors.newScheduledThreadPool(3, r -> {
+            Executors.newScheduledThreadPool(SCHEDULER_THREADS, r -> {
                 Thread t = new Thread(r, "ws-keeper");
                 t.setDaemon(true);
                 return t;
             });
+
+    // 连接表：key=udId#channel（channel: main/terminal/screen）
+    private final ConcurrentMap<String, WsConnection> connections = new ConcurrentHashMap<>();
 
     @Autowired
     private AgentsService agentsService;
@@ -86,7 +77,7 @@ public class AgentKeepWsController {
     @GetMapping("/test")
     public RespModel<?> test() {
         List<Devices> devicesList = agentDeviceMapper.findAgentAndDevice();
-        devicesList.stream().forEach(devices -> {
+        devicesList.forEach(devices -> {
             String host = devices.getHost();
             Integer port = devices.getPort();
             String devicePlatform = devices.getDevicePlatform();
@@ -98,64 +89,89 @@ public class AgentKeepWsController {
             String wsTerminalUrl = StrUtil.format(WS_URL_TERMINAL, host, port, devicePlatform, secretKey, udId, token);
             String wsScreenUrl = StrUtil.format(WS_URL_SCREEN, host, port, devicePlatform, secretKey, udId, token);
 
-            WsConnection connMain = new WsConnection(wsMainUrl, udId + "-main");
-            WsConnection connTerminal = new WsConnection(wsTerminalUrl, udId + "-terminal");
-            WsConnection connScreen = new WsConnection(wsScreenUrl, udId + "-screen");
-
-            connMain.start();
-            connTerminal.start();
-            connScreen.start();
+            ensureWs(udId + "#main", wsMainUrl, udId + "-main");
+            ensureWs(udId + "#terminal", wsTerminalUrl, udId + "-terminal");
+            ensureWs(udId + "#screen", wsScreenUrl, udId + "-screen");
         });
         return new RespModel<>(RespEnum.SEARCH_OK, devicesList);
     }
 
+    private void ensureWs(String key, String url, String name) {
+        connections.compute(key, (k, existing) -> {
+            if (existing == null) {
+                WsConnection c = new WsConnection(url, name);
+                c.start();
+                return c;
+            }
+            // URL 变更则替换连接
+            if (!Objects.equals(existing.getUrl(), url)) {
+                existing.stop();
+                WsConnection c = new WsConnection(url, name);
+                c.start();
+                return c;
+            }
+            // 已存在则确保运行（幂等）
+            existing.start();
+            return existing;
+        });
+    }
+
+    private void upsertDeviceUrl(String udId, String newUrl) {
+        try {
+            Devices one = devicesService.lambdaQuery()
+                    .eq(Devices::getUdId, udId)
+                    .select(Devices::getDeviceUrl)
+                    .one();
+            if (one == null || !Objects.equals(newUrl, one.getDeviceUrl())) {
+                devicesService.update(new LambdaUpdateWrapper<Devices>()
+                        .eq(Devices::getUdId, udId)
+                        .set(Devices::getDeviceUrl, newUrl));
+            }
+        } catch (Exception e) {
+            log.warn("更新 deviceUrl 失败, udId={}, url={}, err={}", udId, newUrl, e.toString());
+        }
+    }
+
     /**
      * 单个 WebSocket 连接的管理器：
-     * - 负责建立连接、心跳保活（定时发送 ping）与断线后的指数退避重连
-     * - 实现 {@link java.net.http.WebSocket.Listener} 以处理服务端回调
+     * - 负责建立连接、心跳保活（定时发送 ping）与断线后的指数退避重连（带抖动）
+     * - 实现 WebSocket.Listener 以处理服务端回调
      * - 线程安全要点：使用 AtomicBoolean/AtomicInteger 与 volatile 字段控制状态
      */
     private final class WsConnection implements WebSocket.Listener {
-        /**
-         * WebSocket 服务端地址（已格式化后的完整 URL）
-         */
+        /** WebSocket 服务端地址（已格式化后的完整 URL） */
         private final String url;
-        /**
-         * 连接名称（仅用于日志标识，不参与协议）
-         */
+        /** 连接名称（仅用于日志标识，不参与协议） */
         private final String name;
 
-        /**
-         * 运行中的 WebSocket 句柄；断开后置为 null
-         */
+        /** 运行中的 WebSocket 句柄；断开后置为 null */
         private volatile WebSocket ws;
-        /**
-         * 心跳任务（定时发送 ping）的句柄，用于取消与替换
-         */
+        /** 心跳任务（定时发送 ping）的句柄，用于取消与替换 */
         private volatile ScheduledFuture<?> pingTask;
 
-        /**
-         * 运行状态标记：start() 成功置为 true，用于允许重连与心跳
-         */
+        /** 运行状态标记：start() 成功置为 true，用于允许重连与心跳 */
         private final AtomicBoolean running = new AtomicBoolean(false);
-        /**
-         * 连接中标记：避免并发重复发起连接
-         */
+        /** 连接中标记：避免并发重复发起连接 */
         private final AtomicBoolean connecting = new AtomicBoolean(false);
-        /**
-         * 重试计数（用于指数退避），连接成功后会清零
-         */
+        /** 重试计数（用于指数退避），连接成功后会清零 */
         private final AtomicInteger retry = new AtomicInteger(0);
 
-        /**
-         * 构造函数
-         *
-         * @param url  目标 WebSocket URL，不能为空
-         * @param name 连接名称，用于日志标识，不能为空
-         */
+        // 解析缓存（构造时一次解析）
+        private final String platform;
+        private final String udId;
+        private final String host;
+
         private WsConnection(String url, String name) {
             this.url = Objects.requireNonNull(url);
             this.name = Objects.requireNonNull(name);
+            Map<String, String> p = parseWsParams(this.url);
+            this.platform = p.getOrDefault("platform", "");
+            this.udId = p.getOrDefault("udId", "");
+            this.host = p.getOrDefault("host", "");
+        }
+
+        String getUrl() {
+            return url;
         }
 
         /**
@@ -168,9 +184,24 @@ public class AgentKeepWsController {
                 log.info("[WS:{}] start()", name);
                 doConnect();
             } else {
-                // 已经在运行，确保若断开时会自动重连
                 if (ws == null) {
                     doConnect();
+                }
+            }
+        }
+
+        /**
+         * 停止连接：停止心跳、关闭 socket、禁止重连
+         */
+        void stop() {
+            running.set(false);
+            cancelPing();
+            WebSocket s = this.ws;
+            this.ws = null;
+            if (s != null) {
+                try {
+                    s.sendClose(1000, "shutdown");
+                } catch (Throwable ignored) {
                 }
             }
         }
@@ -205,32 +236,29 @@ public class AgentKeepWsController {
 
         /**
          * 启动/重置心跳任务：
-         * - 先取消旧任务，再以固定频率（30s）发送 ping
+         * - 先取消旧任务，再以固定延迟（30s）发送 ping（避免任务追赶抖动）
          * - 每次发送设置 10s 超时，仅记录异常日志不抛出
          */
         private void schedulePing() {
             cancelPing();
-            // 每 30s 发送一次 ping，保持长连
-            pingTask = SCHEDULER.scheduleAtFixedRate(() -> {
+            pingTask = SCHEDULER.scheduleWithFixedDelay(() -> {
                 try {
                     WebSocket s = this.ws;
                     if (s != null) {
                         s.sendPing(ByteBuffer.wrap(new byte[0]))
-                                .orTimeout(10, TimeUnit.SECONDS)
+                                .orTimeout(PING_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                                 .exceptionally(e -> {
-                                    log.warn("[WS:{}] 发送 PING 失败: {}", name, e.toString());
+                                    log.debug("[WS:{}] 发送 PING 失败: {}", name, e.toString());
                                     return null;
                                 });
                     }
                 } catch (Throwable t) {
-                    log.warn("[WS:{}] 心跳异常: {}", name, t.toString());
+                    log.debug("[WS:{}] 心跳异常: {}", name, t.toString());
                 }
-            }, 30, 30, TimeUnit.SECONDS);
+            }, PING_INTERVAL_SECONDS, PING_INTERVAL_SECONDS, TimeUnit.SECONDS);
         }
 
-        /**
-         * 取消当前心跳任务（若存在）
-         */
+        /** 取消当前心跳任务（若存在） */
         private void cancelPing() {
             ScheduledFuture<?> task = pingTask;
             if (task != null) {
@@ -240,84 +268,57 @@ public class AgentKeepWsController {
         }
 
         /**
-         * 按指数退避策略调度重连：
+         * 按指数退避策略调度重连（带抖动）：
          * - 退避序列约为：1, 2, 4, 8, 16, 30, 30...（秒）
+         * - 额外加入 0~(base/3) 的随机抖动，避免“重连惊群”
          * - 仅在 running=true 时才会调度
          */
         private void scheduleReconnect() {
             if (!running.get()) return;
-            int attempt = Math.min(retry.getAndIncrement(), 6); // cap
-            long delay = (long) Math.min(30, Math.pow(2, attempt)); // 1,2,4,8,16,30,30...
+            int attempt = Math.min(retry.getAndIncrement(), 6);
+            long base = (long) Math.min(MAX_RETRY_DELAY_SECONDS, Math.pow(2, attempt));
+            long jitter = ThreadLocalRandom.current().nextLong(0, Math.max(1, base / 3));
+            long delay = base + jitter;
             log.info("[WS:{}] {} 秒后重连（第 {} 次）", name, delay, attempt + 1);
             SCHEDULER.schedule(this::doConnect, delay, TimeUnit.SECONDS);
         }
 
-        /**
-         * 连接已建立的回调
-         */
         @Override
         public void onOpen(WebSocket webSocket) {
             log.info("[WS:{}] onOpen", name);
             webSocket.request(1);
         }
 
-        /**
-         * 接收文本消息
-         */
         @Override
         public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-            log.info("[WS:{}] 收到文本: {}", name, data);
-            log.info("[WS:{}] url: {}", name, this.url);
-
-            // 从ws链接中提取参数
-            Map<String, String> paramsMap = parseWsParams(this.url);
-            String platform = paramsMap.get("platform");
-            String udId = paramsMap.get("udId");
-            String host = paramsMap.get("host");
-
-            JSONObject jsonObject = JSONUtil.parseObj(data);
-            log.info("[WS:{}] WS返回的json消息: {}", name, jsonObject.toString());
-
-            // iOS连接成功的消息, 更新wda
-            if (platform.equals("ios")) {
-                if ("openDriver".equals(jsonObject.getStr("msg"))) {
-                    Integer port = (Integer) jsonObject.get("wda");
-                    devicesService.update(new LambdaUpdateWrapper<Devices>()
-                            .eq(Devices::getUdId, udId)
-                            .set(Devices::getDeviceUrl, host + ":" + port));
+            log.info("[WS:{}] 收到文本", name);
+            try {
+                JSONObject jsonObject = JSONUtil.parseObj(data);
+                if ("ios".equals(platform) && "openDriver".equals(jsonObject.getStr("msg"))) {
+                    Integer port = jsonObject.getInt("wda");
+                    if (port != null) {
+                        upsertDeviceUrl(udId, host + ":" + port);
+                    }
+                } else if ("android".equals(platform) && "sas".equals(jsonObject.getStr("msg"))) {
+                    Integer port = jsonObject.getInt("port");
+                    if (port != null) {
+                        upsertDeviceUrl(udId, host + ":" + port);
+                    }
                 }
+            } catch (Exception e) {
+                log.warn("[WS:{}] 处理文本消息异常: {}", name, e.toString());
             }
-
-            // android连接成功的消息, 更新agent转发的地址
-            if (platform.equals("android")) {
-                if ("sas".equals(jsonObject.getStr("msg"))) {
-                    Integer port = (Integer) jsonObject.get("port");
-                    devicesService.update(new LambdaUpdateWrapper<Devices>()
-                            .eq(Devices::getUdId, udId)
-                            .set(Devices::getDeviceUrl, host + ":" + port));
-                }
-            }
-
-            // 请求接收下一条消息。在Java WebSocket API中，这是流量控制机制，数字1表示允许接收1条消息。
             webSocket.request(1);
-            // 返回一个已完成的CompletableFuture，值为null。这符合onText方法的返回类型CompletionStage<?>，表示消息处理已完成。
             return CompletableFuture.completedFuture(null);
         }
 
-        /**
-         * 接收二进制消息
-         */
         @Override
         public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
-            // 日志太多, 不用打印
-            // log.info("[WS:{}] 收到二进制，长度: {}", name, data.remaining());
+            // 日志降噪
             webSocket.request(1);
             return CompletableFuture.completedFuture(null);
         }
 
-        /**
-         * 收到 PING 帧
-         */
         @Override
         public CompletionStage<?> onPing(WebSocket webSocket, ByteBuffer message) {
             log.info("[WS:{}] 收到 PING", name);
@@ -325,9 +326,6 @@ public class AgentKeepWsController {
             return CompletableFuture.completedFuture(null);
         }
 
-        /**
-         * 收到 PONG 帧
-         */
         @Override
         public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
             log.info("[WS:{}] 收到 PONG", name);
@@ -335,10 +333,6 @@ public class AgentKeepWsController {
             return CompletableFuture.completedFuture(null);
         }
 
-        /**
-         * 连接关闭回调：
-         * - 停止心跳、清空 ws，并触发重连
-         */
         @Override
         public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
             log.info("[WS:{}] 连接关闭，status={}, reason={}", name, statusCode, reason);
@@ -348,10 +342,6 @@ public class AgentKeepWsController {
             return CompletableFuture.completedFuture(null);
         }
 
-        /**
-         * 连接异常回调：
-         * - 停止心跳、清空 ws，并触发重连
-         */
         @Override
         public void onError(WebSocket webSocket, Throwable error) {
             log.error("[WS:{}] 发生错误: {}", name, error.toString(), error);
@@ -360,18 +350,39 @@ public class AgentKeepWsController {
             scheduleReconnect();
         }
 
-        private Map parseWsParams(String url) {
-            String[] parts = url.replace("ws://", "").split("/");
-            String[] hostPort = parts[0].split(":");
-
+        /**
+         * 解析 ws URL 的关键参数（兼容 main/terminal/screen）
+         */
+        private Map<String, String> parseWsParams(String url) {
             Map<String, String> result = new HashMap<>();
-            result.put("host", hostPort[0]);
-            result.put("port", hostPort[1]);
-            result.put("platform", parts[2]);
-            result.put("secretKey", parts[3]);
-            result.put("udId", parts[4]);
-            result.put("token", parts[5]);
+            try {
+                String noSchema = url.replaceFirst("^ws://", "");
+                String[] firstSplit = noSchema.split("/", 2);
+                String hostPort = firstSplit[0];
+                String path = firstSplit.length > 1 ? firstSplit[1] : "";
+                String[] hostPair = hostPort.split(":");
+                result.put("host", hostPair[0]);
+                result.put("port", hostPair.length > 1 ? hostPair[1] : "");
 
+                String[] seg = path.split("/");
+                // 期望：websockets/{platform}/[terminal|screen]?/{secretKey}/{udId}/{token}
+                // seg[0]=websockets, seg[1]=platform, seg[2]=optional channel
+                String platform = seg.length > 1 ? seg[1] : "";
+                int base = 2;
+                if (seg.length > 2 && ("terminal".equals(seg[2]) || "screen".equals(seg[2]))) {
+                    base = 3;
+                }
+                String secretKey = seg.length > base ? seg[base] : "";
+                String udId = seg.length > base + 1 ? seg[base + 1] : "";
+                String token = seg.length > base + 2 ? seg[base + 2] : "";
+
+                result.put("platform", platform);
+                result.put("secretKey", secretKey);
+                result.put("udId", udId);
+                result.put("token", token);
+            } catch (Exception e) {
+                log.warn("parseWsParams 解析失败: {}", e.toString());
+            }
             return result;
         }
     }
