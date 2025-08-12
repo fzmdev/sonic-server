@@ -181,6 +181,18 @@ public class Devices implements Serializable, TypeConverter<Devices, DevicesDTO>
     @Column(defaultValue = "0", comment = "HUB位置")
     Integer position;
 
+    @TableField(exist = false)
+    private String secretKey;
+
+    @TableField(exist = false)
+    private String host;
+
+    @TableField(exist = false)
+    private String devicePlatform;
+
+    @TableField(exist = false)
+    private Integer port;
+
     public static Devices newDeletedDevice(int id) {
         String tips = "Device does not exist.";
         return new Devices()

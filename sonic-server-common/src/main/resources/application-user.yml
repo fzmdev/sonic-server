@@ -1,7 +1,7 @@
 sonic:
   token:
     secret: ${SECRET_KEY:sonic}
-    expireDay: ${EXPIRE_DAY:14}
+    expireDay: ${EXPIRE_DAY:365}
   user:
     register:
       enable: ${REGISTER_ENABLE:true}
