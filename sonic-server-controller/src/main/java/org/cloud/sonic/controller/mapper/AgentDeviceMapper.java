@@ -25,6 +25,8 @@ public interface AgentDeviceMapper {
             "on\n" +
             "\td.agent_id = a.id\n" +
             "where\n" +
-            "\td.status = \"ONLINE\";")
+            "\td.status = \"ONLINE\"\n" +
+            "\tand \n" +
+            "\td.ud_id not like '%:%';")
     public List<Devices> findAgentAndDevice();
 }

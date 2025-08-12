@@ -181,6 +181,12 @@ public class Devices implements Serializable, TypeConverter<Devices, DevicesDTO>
     @Column(defaultValue = "0", comment = "HUB位置")
     Integer position;
 
+    @TableField
+    private String deviceUrl;
+
+    // @TableField
+    // private String wdaUrl;
+
     @TableField(exist = false)
     private String secretKey;
 

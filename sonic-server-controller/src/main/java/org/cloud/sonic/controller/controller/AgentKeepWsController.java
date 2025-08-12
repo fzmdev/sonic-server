@@ -18,6 +18,9 @@
 package org.cloud.sonic.controller.controller;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.cloud.sonic.common.config.WebAspect;
@@ -37,7 +40,9 @@ import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -110,22 +115,60 @@ public class AgentKeepWsController {
         return new RespModel<>(RespEnum.SEARCH_OK, devicesList);
     }
 
+    /**
+     * 单个 WebSocket 连接的管理器：
+     * - 负责建立连接、心跳保活（定时发送 ping）与断线后的指数退避重连
+     * - 实现 {@link java.net.http.WebSocket.Listener} 以处理服务端回调
+     * - 线程安全要点：使用 AtomicBoolean/AtomicInteger 与 volatile 字段控制状态
+     */
     private final class WsConnection implements WebSocket.Listener {
+        /**
+         * WebSocket 服务端地址（已格式化后的完整 URL）
+         */
         private final String url;
+        /**
+         * 连接名称（仅用于日志标识，不参与协议）
+         */
         private final String name;
 
+        /**
+         * 运行中的 WebSocket 句柄；断开后置为 null
+         */
         private volatile WebSocket ws;
+        /**
+         * 心跳任务（定时发送 ping）的句柄，用于取消与替换
+         */
         private volatile ScheduledFuture<?> pingTask;
 
+        /**
+         * 运行状态标记：start() 成功置为 true，用于允许重连与心跳
+         */
         private final AtomicBoolean running = new AtomicBoolean(false);
+        /**
+         * 连接中标记：避免并发重复发起连接
+         */
         private final AtomicBoolean connecting = new AtomicBoolean(false);
+        /**
+         * 重试计数（用于指数退避），连接成功后会清零
+         */
         private final AtomicInteger retry = new AtomicInteger(0);
 
+        /**
+         * 构造函数
+         *
+         * @param url  目标 WebSocket URL，不能为空
+         * @param name 连接名称，用于日志标识，不能为空
+         */
         private WsConnection(String url, String name) {
             this.url = Objects.requireNonNull(url);
             this.name = Objects.requireNonNull(name);
         }
 
+        /**
+         * 启动连接（进入运行态）：
+         * - 首次调用：置 running=true 并立即发起连接
+         * - 重复调用：若已运行但 ws==null（曾断开），确保会再次尝试连接
+         */
         void start() {
             if (running.compareAndSet(false, true)) {
                 log.info("[WS:{}] start()", name);
@@ -138,6 +181,12 @@ public class AgentKeepWsController {
             }
         }
 
+        /**
+         * 发起一次异步连接：
+         * - 在 running=true 且未处于 connecting 状态下才会执行
+         * - 成功：保存 socket、清零重试次数、启动心跳
+         * - 失败：记录日志并调度重连
+         */
         private void doConnect() {
             if (!running.get()) return;
             if (!connecting.compareAndSet(false, true)) {
@@ -160,6 +209,11 @@ public class AgentKeepWsController {
                     });
         }
 
+        /**
+         * 启动/重置心跳任务：
+         * - 先取消旧任务，再以固定频率（30s）发送 ping
+         * - 每次发送设置 10s 超时，仅记录异常日志不抛出
+         */
         private void schedulePing() {
             cancelPing();
             // 每 30s 发送一次 ping，保持长连
@@ -180,6 +234,9 @@ public class AgentKeepWsController {
             }, 30, 30, TimeUnit.SECONDS);
         }
 
+        /**
+         * 取消当前心跳任务（若存在）
+         */
         private void cancelPing() {
             ScheduledFuture<?> task = pingTask;
             if (task != null) {
@@ -188,6 +245,11 @@ public class AgentKeepWsController {
             }
         }
 
+        /**
+         * 按指数退避策略调度重连：
+         * - 退避序列约为：1, 2, 4, 8, 16, 30, 30...（秒）
+         * - 仅在 running=true 时才会调度
+         */
         private void scheduleReconnect() {
             if (!running.get()) return;
             int attempt = Math.min(retry.getAndIncrement(), 6); // cap
@@ -196,26 +258,72 @@ public class AgentKeepWsController {
             SCHEDULER.schedule(this::doConnect, delay, TimeUnit.SECONDS);
         }
 
+        /**
+         * 连接已建立的回调
+         */
         @Override
         public void onOpen(WebSocket webSocket) {
             log.info("[WS:{}] onOpen", name);
             webSocket.request(1);
         }
 
+        /**
+         * 接收文本消息
+         */
         @Override
         public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
             log.info("[WS:{}] 收到文本: {}", name, data);
+            log.info("[WS:{}] url: {}", name, this.url);
+
+            // 从ws链接中提取参数
+            Map<String, String> paramsMap = parseWsParams(this.url);
+            String platform = paramsMap.get("platform");
+            String udId = paramsMap.get("udId");
+            String host = paramsMap.get("host");
+
+            JSONObject jsonObject = JSONUtil.parseObj(data);
+            log.info("[WS:{}] WS返回的json消息: {}", name, jsonObject.toString());
+
+            // iOS连接成功的消息, 更新wda
+            if (platform.equals("ios")) {
+                if ("openDriver".equals(jsonObject.getStr("msg"))) {
+                    Integer port = (Integer) jsonObject.get("wda");
+                    devicesService.update(new LambdaUpdateWrapper<Devices>()
+                            .eq(Devices::getUdId, udId)
+                            .set(Devices::getDeviceUrl, host + ":" + port));
+                }
+            }
+
+            // android连接成功的消息, 更新agent转发的地址
+            if (platform.equals("android")) {
+                if ("sas".equals(jsonObject.getStr("msg"))) {
+                    Integer port = (Integer) jsonObject.get("port");
+                    devicesService.update(new LambdaUpdateWrapper<Devices>()
+                            .eq(Devices::getUdId, udId)
+                            .set(Devices::getDeviceUrl, host + ":" + port));
+                }
+            }
+
+            // 请求接收下一条消息。在Java WebSocket API中，这是流量控制机制，数字1表示允许接收1条消息。
             webSocket.request(1);
+            // 返回一个已完成的CompletableFuture，值为null。这符合onText方法的返回类型CompletionStage<?>，表示消息处理已完成。
             return CompletableFuture.completedFuture(null);
         }
 
+        /**
+         * 接收二进制消息
+         */
         @Override
         public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
-            log.info("[WS:{}] 收到二进制，长度: {}", name, data.remaining());
+            // 日志太多, 不用打印
+            // log.info("[WS:{}] 收到二进制，长度: {}", name, data.remaining());
             webSocket.request(1);
             return CompletableFuture.completedFuture(null);
         }
 
+        /**
+         * 收到 PING 帧
+         */
         @Override
         public CompletionStage<?> onPing(WebSocket webSocket, ByteBuffer message) {
             log.info("[WS:{}] 收到 PING", name);
@@ -223,6 +331,9 @@ public class AgentKeepWsController {
             return CompletableFuture.completedFuture(null);
         }
 
+        /**
+         * 收到 PONG 帧
+         */
         @Override
         public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
             log.info("[WS:{}] 收到 PONG", name);
@@ -230,6 +341,10 @@ public class AgentKeepWsController {
             return CompletableFuture.completedFuture(null);
         }
 
+        /**
+         * 连接关闭回调：
+         * - 停止心跳、清空 ws，并触发重连
+         */
         @Override
         public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
             log.info("[WS:{}] 连接关闭，status={}, reason={}", name, statusCode, reason);
@@ -239,12 +354,31 @@ public class AgentKeepWsController {
             return CompletableFuture.completedFuture(null);
         }
 
+        /**
+         * 连接异常回调：
+         * - 停止心跳、清空 ws，并触发重连
+         */
         @Override
         public void onError(WebSocket webSocket, Throwable error) {
             log.error("[WS:{}] 发生错误: {}", name, error.toString(), error);
             cancelPing();
             this.ws = null;
             scheduleReconnect();
+        }
+
+        private Map parseWsParams(String url) {
+            String[] parts = url.replace("ws://", "").split("/");
+            String[] hostPort = parts[0].split(":");
+
+            Map<String, String> result = new HashMap<>();
+            result.put("host", hostPort[0]);
+            result.put("port", hostPort[1]);
+            result.put("platform", parts[2]);
+            result.put("secretKey", parts[3]);
+            result.put("udId", parts[4]);
+            result.put("token", parts[5]);
+
+            return result;
         }
     }
 }
