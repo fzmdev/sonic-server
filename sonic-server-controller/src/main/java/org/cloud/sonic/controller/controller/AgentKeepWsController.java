@@ -31,6 +31,8 @@ import org.cloud.sonic.controller.models.domain.Devices;
 import org.cloud.sonic.controller.services.AgentsService;
 import org.cloud.sonic.controller.services.DevicesService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,7 +54,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 @Tag(name = "Agent端维持Ws")
 @RestController
-@RequestMapping("/agentsKeepWs")
+// @RequestMapping("/agentsKeepWs")
+@Component
 public class AgentKeepWsController {
 
     // 1) 原 WS（去掉 @）
@@ -84,9 +87,11 @@ public class AgentKeepWsController {
     @Autowired
     private AgentDeviceMapper agentDeviceMapper;
 
-    @WebAspect
-    @GetMapping("/test")
-    public RespModel<?> test() {
+    // 新增：去重保存每条连接，避免定时器重复创建
+    private final ConcurrentMap<String, WsConnection> connections = new ConcurrentHashMap<>();
+
+    @Scheduled(fixedDelay = 5000L)
+    public void keepAliveTask() {
         List<Devices> devicesList = agentDeviceMapper.findAgentAndDevice();
         devicesList.stream().forEach(devices -> {
             String host = devices.getHost();
@@ -100,15 +105,14 @@ public class AgentKeepWsController {
             String wsTerminalUrl = StrUtil.format(WS_URL_TERMINAL, host, port, devicePlatform, secretKey, udId, token);
             String wsScreenUrl = StrUtil.format(WS_URL_SCREEN, host, port, devicePlatform, secretKey, udId, token);
 
-            WsConnection connMain = new WsConnection(wsMainUrl, udId + "-main");
-            WsConnection connTerminal = new WsConnection(wsTerminalUrl, udId + "-terminal");
-            WsConnection connScreen = new WsConnection(wsScreenUrl, udId + "-screen");
+            WsConnection connMain = connections.computeIfAbsent(udId + ":main", k -> new WsConnection(wsMainUrl, udId + "-main"));
+            WsConnection connTerminal = connections.computeIfAbsent(udId + ":terminal", k -> new WsConnection(wsTerminalUrl, udId + "-terminal"));
+            WsConnection connScreen = connections.computeIfAbsent(udId + ":screen", k -> new WsConnection(wsScreenUrl, udId + "-screen"));
 
             connMain.start();
             connTerminal.start();
             connScreen.start();
         });
-        return new RespModel<>(RespEnum.SEARCH_OK, devicesList);
     }
 
     /**

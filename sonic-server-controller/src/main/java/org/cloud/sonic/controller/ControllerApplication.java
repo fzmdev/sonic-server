@@ -25,6 +25,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * @author ZhouYiXun
@@ -43,6 +44,7 @@ import org.springframework.context.annotation.Import;
 })
 @EnableFeignClients
 @EnableDiscoveryClient
+@EnableScheduling
 @Import(SpringTool.class)
 public class ControllerApplication {
     public static void main(String[] args) {
