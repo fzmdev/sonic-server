@@ -29,10 +29,7 @@ import org.cloud.sonic.controller.services.AgentsService;
 import org.cloud.sonic.controller.services.DevicesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,10 +40,7 @@ import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.time.Duration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -246,7 +240,7 @@ public class AgentKeepWsController {
                 } catch (Throwable t) {
                     log.warn("[WS:{}] 心跳异常: {}", name, t.toString());
                 }
-            }, 30, 30, TimeUnit.SECONDS);
+            }, 10, 10, TimeUnit.SECONDS);
         }
 
         /**
@@ -356,6 +350,10 @@ public class AgentKeepWsController {
         @Override
         public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
             log.info("[WS:{}] 收到 PONG", name);
+            Map<String, String> paramsMap = parseWsParams(this.url);
+            String udId = paramsMap.get("udId");
+            String host = paramsMap.get("host");
+            SCHEDULER.execute(() -> sendHeart(udId, host));
             webSocket.request(1);
             return CompletableFuture.completedFuture(null);
         }
@@ -448,6 +446,30 @@ public class AgentKeepWsController {
                 log.info("[WS:{}] 已同步设备信息到ATMP: {}, 返回: {}", name, url, stringResponseEntity.getBody());
             } catch (Exception e) {
                 log.warn("[WS:{}] 同步ATMP失败: {}", name, e.toString());
+            }
+        }
+
+        private void sendHeart(String udId, String host) {
+            try {
+                if (StrUtil.isBlank(atmpBaseUrl)) {
+                    log.warn("[WS:{}] 跳过心跳：未配置 atmp.server.base-url", name);
+                    return;
+                }
+                String base = atmpBaseUrl.endsWith("/") ? atmpBaseUrl.substring(0, atmpBaseUrl.length() - 1) : atmpBaseUrl;
+                String url = base + "/device/devicePhone/sendheart";
+
+                Map<String, Object> body = new HashMap<>();
+                body.put("providerId", "sonic-" + host);
+                body.put("ids", Collections.singletonList(udId));
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("X-Access-Token", atmpToken);
+                HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
+                ResponseEntity<String> stringResponseEntity = restTemplate.exchange(url, HttpMethod.PUT, req, String.class);
+                log.info("[WS:{}] 已上报心跳到ATMP: {}, 返回: {}", name, url, stringResponseEntity.getBody());
+            } catch (Exception e) {
+                log.warn("[WS:{}] 上报心跳失败: {}", name, e.toString());
             }
         }
     }
