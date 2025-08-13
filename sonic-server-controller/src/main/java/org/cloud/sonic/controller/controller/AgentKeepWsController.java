@@ -346,7 +346,13 @@ public class AgentKeepWsController {
             log.info("[WS:{}] 连接关闭，status={}, reason={}", name, statusCode, reason);
             cancelPing();
             this.ws = null;
-            scheduleReconnect();
+            boolean deviceOffline = (statusCode == 1001) || (reason != null && reason.contains("DEVICE_OFFLINE"));
+            if (deviceOffline) {
+                running.set(false);
+                log.info("[WS:{}] 因设备离线停止重连", name);
+            } else {
+                scheduleReconnect();
+            }
             return CompletableFuture.completedFuture(null);
         }
 
