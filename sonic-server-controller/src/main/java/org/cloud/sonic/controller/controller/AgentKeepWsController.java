@@ -105,9 +105,9 @@ public class AgentKeepWsController {
             String wsTerminalUrl = StrUtil.format(WS_URL_TERMINAL, host, port, devicePlatform, secretKey, udId, token);
             String wsScreenUrl = StrUtil.format(WS_URL_SCREEN, host, port, devicePlatform, secretKey, udId, token);
 
-            WsConnection connMain = connections.computeIfAbsent(udId + ":main", k -> new WsConnection(wsMainUrl, udId + "-main"));
-            WsConnection connTerminal = connections.computeIfAbsent(udId + ":terminal", k -> new WsConnection(wsTerminalUrl, udId + "-terminal"));
-            WsConnection connScreen = connections.computeIfAbsent(udId + ":screen", k -> new WsConnection(wsScreenUrl, udId + "-screen"));
+            WsConnection connMain = connections.computeIfAbsent(udId + ":main", k -> new WsConnection(wsMainUrl, udId + "-main", k));
+            WsConnection connTerminal = connections.computeIfAbsent(udId + ":terminal", k -> new WsConnection(wsTerminalUrl, udId + "-terminal", k));
+            WsConnection connScreen = connections.computeIfAbsent(udId + ":screen", k -> new WsConnection(wsScreenUrl, udId + "-screen", k));
 
             connMain.start();
             connTerminal.start();
@@ -130,6 +130,10 @@ public class AgentKeepWsController {
          * 连接名称（仅用于日志标识，不参与协议）
          */
         private final String name;
+        /**
+         * connections 中的 key
+         */
+        private final String connKey;
 
         /**
          * 运行中的 WebSocket 句柄；断开后置为 null
@@ -159,9 +163,10 @@ public class AgentKeepWsController {
          * @param url  目标 WebSocket URL，不能为空
          * @param name 连接名称，用于日志标识，不能为空
          */
-        private WsConnection(String url, String name) {
+        private WsConnection(String url, String name, String connKey) {
             this.url = Objects.requireNonNull(url);
             this.name = Objects.requireNonNull(name);
+            this.connKey = Objects.requireNonNull(connKey);
         }
 
         /**
@@ -354,6 +359,12 @@ public class AgentKeepWsController {
             if (deviceOffline) {
                 running.set(false);
                 log.info("[WS:{}] 因设备离线停止重连", name);
+                String udId = this.name.split("-")[0];
+                // 断开时, 删除deviceUrl
+                devicesService.update(new LambdaUpdateWrapper<Devices>()
+                        .eq(Devices::getUdId, udId)
+                        .set(Devices::getDeviceUrl, ""));
+                connections.remove(connKey);
             } else {
                 scheduleReconnect();
             }
