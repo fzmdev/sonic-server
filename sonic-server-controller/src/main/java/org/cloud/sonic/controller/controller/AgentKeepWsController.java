@@ -62,12 +62,14 @@ public class AgentKeepWsController {
     // 3) 新增 WS 地址2（去掉 @）
     private static final String WS_URL_SCREEN = "ws://{}:{}/websockets/{}/screen/{}/{}/{}";
 
+    private static final int SCHEDULER_THREADS = Math.max(8, Runtime.getRuntime().availableProcessors() * 2);
+
     // 共享 HttpClient + 调度线程池（心跳、重连）
     private final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
     private static final ScheduledExecutorService SCHEDULER =
-            Executors.newScheduledThreadPool(3, r -> {
+            Executors.newScheduledThreadPool(SCHEDULER_THREADS, r -> {
                 Thread t = new Thread(r, "ws-keeper");
                 t.setDaemon(true);
                 return t;
