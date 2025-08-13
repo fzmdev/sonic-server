@@ -7,3 +7,8 @@ spring:
     active: @project.artifactId@,eureka,jdbc,feign,logging,user
   main:
     allow-circular-references: true
+
+atmp:
+  server:
+    base-url: https://test.anker-in.com/api
+    token: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjIzMDM2NTQ0MDAsInVzZXJuYW1lIjoiYWRtaW4ifQ.TGGVSc5MCm2XXJa4d7N9GX8P0tc7RGsqIctiEhkXV64

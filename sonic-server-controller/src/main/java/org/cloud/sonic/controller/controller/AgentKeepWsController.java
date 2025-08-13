@@ -23,19 +23,20 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
-import org.cloud.sonic.common.config.WebAspect;
-import org.cloud.sonic.common.http.RespEnum;
-import org.cloud.sonic.common.http.RespModel;
 import org.cloud.sonic.controller.mapper.AgentDeviceMapper;
 import org.cloud.sonic.controller.models.domain.Devices;
 import org.cloud.sonic.controller.services.AgentsService;
 import org.cloud.sonic.controller.services.DevicesService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.RestTemplate;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -86,6 +87,15 @@ public class AgentKeepWsController {
 
     @Autowired
     private AgentDeviceMapper agentDeviceMapper;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Value("${atmp.server.base-url:}")
+    private String atmpBaseUrl;
+
+    @Value("${atmp.server.token:}")
+    private String atmpToken;
 
     // 新增：去重保存每条连接，避免定时器重复创建
     private final ConcurrentMap<String, WsConnection> connections = new ConcurrentHashMap<>();
@@ -296,6 +306,8 @@ public class AgentKeepWsController {
                     devicesService.update(new LambdaUpdateWrapper<Devices>()
                             .eq(Devices::getUdId, udId)
                             .set(Devices::getDeviceUrl, host + ":" + port));
+                    Devices device = devicesService.findByUdId(udId);
+                    SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize()));
                 }
             }
 
@@ -306,6 +318,8 @@ public class AgentKeepWsController {
                     devicesService.update(new LambdaUpdateWrapper<Devices>()
                             .eq(Devices::getUdId, udId)
                             .set(Devices::getDeviceUrl, host + ":" + port));
+                    Devices device = devicesService.findByUdId(udId);
+                    SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize()));
                 }
             }
 
@@ -396,6 +410,45 @@ public class AgentKeepWsController {
             result.put("token", parts[5]);
 
             return result;
+        }
+
+        private void syncDevicePhone(String udId, String platform, String host, Integer port, Boolean online, String model, String version, String size) {
+            try {
+                if (StrUtil.isBlank(atmpBaseUrl)) {
+                    log.warn("[WS:{}] 跳过同步：未配置 atmp.server.base-url", name);
+                    return;
+                }
+                String base = atmpBaseUrl.endsWith("/") ? atmpBaseUrl.substring(0, atmpBaseUrl.length() - 1) : atmpBaseUrl;
+                String url = base + "/device/devicePhone/add";
+
+                Map<String, Object> body = new HashMap<>();
+                body.put("id", udId);
+                body.put("deviceType", platform);
+                body.put("online", online);
+                body.put("isBusy", false);
+                body.put("usedCounts", 0);
+                body.put("busyTimeout", 10800);
+                String remoteUrl = platform.equals("android") ? host + ":" + port : "http://" + host + ":" + port;
+                body.put("remoteUrl", remoteUrl);
+                body.put("providerId", "sonic-" + host);
+                body.put("providerIp", host);
+                body.put("heartTime", System.currentTimeMillis());
+                body.put("name", model);
+                body.put("version", version);
+                body.put("resolution", size);
+                body.put("location", "sonic");
+                body.put("isServer", false);
+                body.put("deviceGroup", "group_all");
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.set("X-Access-Token", atmpToken);
+                HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
+                ResponseEntity<String> stringResponseEntity = restTemplate.postForEntity(url, req, String.class);
+                log.info("[WS:{}] 已同步设备信息到ATMP: {}, 返回: {}", name, url, stringResponseEntity.getBody());
+            } catch (Exception e) {
+                log.warn("[WS:{}] 同步ATMP失败: {}", name, e.toString());
+            }
         }
     }
 }

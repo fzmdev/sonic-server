@@ -30,4 +30,9 @@ public class WsStrTest {
         System.out.println(result.get("udId"));
 
     }
+
+    @Test
+    public void testTime() {
+        System.out.println(System.currentTimeMillis());
+    }
 }
