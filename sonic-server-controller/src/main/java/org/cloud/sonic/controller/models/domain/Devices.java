@@ -184,8 +184,8 @@ public class Devices implements Serializable, TypeConverter<Devices, DevicesDTO>
     @TableField
     private String deviceUrl;
 
-    // @TableField
-    // private String wdaUrl;
+    @TableField(exist = false)
+    private String tideviceSocket;
 
     @TableField(exist = false)
     private String secretKey;

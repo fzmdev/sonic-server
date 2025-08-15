@@ -24,6 +24,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.cloud.sonic.controller.mapper.AgentDeviceMapper;
+import org.cloud.sonic.controller.models.domain.Agents;
 import org.cloud.sonic.controller.models.domain.Devices;
 import org.cloud.sonic.controller.services.AgentsService;
 import org.cloud.sonic.controller.services.DevicesService;
@@ -301,7 +302,8 @@ public class AgentKeepWsController {
                             .eq(Devices::getUdId, udId)
                             .set(Devices::getDeviceUrl, host + ":" + port));
                     Devices device = devicesService.findByUdId(udId);
-                    SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize()));
+                    Agents agent = agentsService.findById(device.getAgentId());
+                    SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
                 }
             }
 
@@ -313,7 +315,8 @@ public class AgentKeepWsController {
                             .eq(Devices::getUdId, udId)
                             .set(Devices::getDeviceUrl, host + ":" + port));
                     Devices device = devicesService.findByUdId(udId);
-                    SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize()));
+                    Agents agent = agentsService.findById(device.getAgentId());
+                    SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
                 }
             }
 
@@ -410,7 +413,7 @@ public class AgentKeepWsController {
             return result;
         }
 
-        private void syncDevicePhone(String udId, String platform, String host, Integer port, Boolean online, String model, String version, String size) {
+        private void syncDevicePhone(String udId, String platform, String host, Integer port, Boolean online, String model, String version, String size, String tideviceSocket) {
             try {
                 if (StrUtil.isBlank(atmpBaseUrl)) {
                     log.warn("[WS:{}] 跳过同步：未配置 atmp.server.base-url", name);
@@ -437,6 +440,7 @@ public class AgentKeepWsController {
                 body.put("location", "sonic");
                 body.put("isServer", false);
                 body.put("deviceGroup", "group_all");
+                body.put("tideviceSocket", tideviceSocket);
 
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);

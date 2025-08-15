@@ -148,4 +148,7 @@ public class Agents implements Serializable, TypeConverter<Agents, AgentsDTO> {
     @TableField(typeHandler = NullableIntArrayTypeHandler.class, updateStrategy = FieldStrategy.IGNORED)
     @Column(value = "alert_robot_ids", type = MySqlTypeConstant.VARCHAR, length = 1024, comment = "逗号分隔通知机器人id串，为null时自动选取所有可用机器人")
     private int[] alertRobotIds;
+
+    @TableField
+    private String tideviceSocket;
 }

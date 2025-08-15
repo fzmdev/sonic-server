@@ -18,6 +18,7 @@
 package org.cloud.sonic.controller.controller;
 
 import com.alibaba.fastjson.JSONObject;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.cloud.sonic.common.config.WebAspect;
@@ -30,6 +31,8 @@ import org.cloud.sonic.controller.services.AgentsService;
 import org.cloud.sonic.controller.transport.TransportWorker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -226,5 +229,39 @@ public class AgentsController {
         } else {
             return new RespModel<>(RespEnum.ID_NOT_FOUND);
         }
+    }
+
+    /**
+     * 更新Agent的tideviceSocket字段
+     *
+     * <p>该接口专门用于Agent端自动更新其tideviceSocket地址。当Agent端启动tidevice socket服务后，
+     * 会自动调用此接口将socket地址同步到服务端。</p>
+     *
+     * @param request HTTP请求对象，从SonicToken header获取secretKey
+     * @param requestBody 包含tideviceSocket字段的JSON对象
+     * @return 更新结果响应
+     */
+    @WebAspect
+    @Operation(summary = "更新Agent的tideviceSocket字段", description = "Agent端自动更新tideviceSocket地址")
+    @PutMapping("/updateTideviceSocket")
+    public RespModel<String> updateTideviceSocket(HttpServletRequest request, @RequestBody JSONObject requestBody) {
+        String secretKey = requestBody.getString("secretKey");
+        if (secretKey == null || secretKey.trim().isEmpty()) {
+            return new RespModel<>(RespEnum.UNAUTHORIZED);
+        }
+
+        Agents agent = agentsService.findBySecretKey(secretKey);
+        if (agent == null) {
+            return new RespModel<>(RespEnum.UNAUTHORIZED);
+        }
+
+        String tideviceSocket = requestBody.getString("tideviceSocket");
+        if (tideviceSocket != null) {
+            agent.setTideviceSocket(tideviceSocket);
+            agentsService.updateById(agent);
+            agentsService.updateAgentsByLockVersion(agent);
+        }
+
+        return new RespModel<>(RespEnum.HANDLE_OK);
     }
 }

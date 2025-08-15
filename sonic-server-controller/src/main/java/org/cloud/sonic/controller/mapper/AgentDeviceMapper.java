@@ -18,7 +18,8 @@ public interface AgentDeviceMapper {
             "\td.version,\n" +
             "\ta.secret_key,\n" +
             "\ta.host,\n" +
-            "\ta.port\n" +
+            "\ta.port,\n" +
+            "\ta.tidevice_socket\n" +
             "from\n" +
             "\tdevices d\n" +
             "inner join agents a \n" +
