@@ -28,3 +28,10 @@ robot:
     success: "https://gitee.com/sonic-cloud/sonic-cloud/raw/main/src/assets/suc.png"
     warning: "https://gitee.com/sonic-cloud/sonic-cloud/raw/main/src/assets/warn.png"
     error: "https://gitee.com/sonic-cloud/sonic-cloud/raw/main/src/assets/fail.png"
+
+sonic:
+  websocket:
+    retry:
+      max-attempts: 10        # 最大重试次数，默认10次
+      base-delay: 1          # 基础延迟时间(秒)，默认1秒
+      max-delay: 30          # 最大延迟时间(秒)，默认30秒

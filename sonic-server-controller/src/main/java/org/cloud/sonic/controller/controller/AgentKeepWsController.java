@@ -92,6 +92,15 @@ public class AgentKeepWsController {
     @Value("${atmp.server.token:}")
     private String atmpToken;
 
+    @Value("${sonic.websocket.retry.max-attempts:10}")
+    private int maxRetryAttempts;
+
+    @Value("${sonic.websocket.retry.base-delay:1}")
+    private int baseDelaySeconds;
+
+    @Value("${sonic.websocket.retry.max-delay:30}")
+    private int maxDelaySeconds;
+
     // 新增：去重保存每条连接，避免定时器重复创建
     private final ConcurrentMap<String, WsConnection> connections = new ConcurrentHashMap<>();
 
@@ -259,12 +268,28 @@ public class AgentKeepWsController {
          * 按指数退避策略调度重连：
          * - 退避序列约为：1, 2, 4, 8, 16, 30, 30...（秒）
          * - 仅在 running=true 时才会调度
+         * - 增加最大重试次数限制，超过限制后停止重连
          */
         private void scheduleReconnect() {
             if (!running.get()) return;
-            int attempt = Math.min(retry.getAndIncrement(), 6); // cap
-            long delay = (long) Math.min(30, Math.pow(2, attempt)); // 1,2,4,8,16,30,30...
-            log.info("[WS:{}] {} 秒后重连（第 {} 次）", name, delay, attempt + 1);
+            
+            int currentRetry = retry.get();
+            if (currentRetry >= maxRetryAttempts) {
+                log.warn("[WS:{}] 已达到最大重试次数 {}，停止重连", name, maxRetryAttempts);
+                running.set(false);
+                connections.remove(connKey);
+                // 设备连接失败，清空deviceUrl
+                String udId = this.name.split("-")[0];
+                devicesService.update(new LambdaUpdateWrapper<Devices>()
+                        .eq(Devices::getUdId, udId)
+                        .set(Devices::getDeviceUrl, ""));
+                return;
+            }
+            
+            retry.getAndIncrement();
+            long delay = Math.min(maxDelaySeconds, 
+                    (long) (baseDelaySeconds * Math.pow(2, Math.min(currentRetry, 5))));
+            log.info("[WS:{}] {} 秒后重连（第 {}/{} 次）", name, delay, currentRetry + 1, maxRetryAttempts);
             SCHEDULER.schedule(this::doConnect, delay, TimeUnit.SECONDS);
         }
 

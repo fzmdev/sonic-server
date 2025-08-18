@@ -8,6 +8,6 @@ eureka:
     registry-fetch-interval-seconds: 5
     service-url:
       # 打包使用
-#      defaultZone: http://${SONIC_EUREKA_USERNAME:sonic}:${SONIC_EUREKA_PASSWORD:sonic}@${SONIC_EUREKA_HOST:172.16.37.180}:${SONIC_EUREKA_PORT:8761}/eureka/
+      defaultZone: http://${SONIC_EUREKA_USERNAME:sonic}:${SONIC_EUREKA_PASSWORD:sonic}@${SONIC_EUREKA_HOST:172.16.37.180}:${SONIC_EUREKA_PORT:8761}/eureka/
       # 调试使用
-      defaultZone: http://${SONIC_EUREKA_USERNAME:sonic}:${SONIC_EUREKA_PASSWORD:sonic}@${SONIC_EUREKA_HOST:10.0.90.32}:${SONIC_EUREKA_PORT:8761}/eureka/
+#      defaultZone: http://${SONIC_EUREKA_USERNAME:sonic}:${SONIC_EUREKA_PASSWORD:sonic}@${SONIC_EUREKA_HOST:10.0.90.32}:${SONIC_EUREKA_PORT:8761}/eureka/
