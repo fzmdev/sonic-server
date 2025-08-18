@@ -323,12 +323,16 @@ public class AgentKeepWsController {
             if (platform.equals("ios")) {
                 if ("openDriver".equals(jsonObject.getStr("msg"))) {
                     Integer port = (Integer) jsonObject.get("wda");
-                    devicesService.update(new LambdaUpdateWrapper<Devices>()
-                            .eq(Devices::getUdId, udId)
-                            .set(Devices::getDeviceUrl, host + ":" + port));
-                    Devices device = devicesService.findByUdId(udId);
-                    Agents agent = agentsService.findById(device.getAgentId());
-                    SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                    // 有可能转发的port是null
+                    if (port != null) {
+                        devicesService.update(new LambdaUpdateWrapper<Devices>()
+                                .eq(Devices::getUdId, udId)
+                                .set(Devices::getDeviceUrl, host + ":" + port));
+                        Devices device = devicesService.findByUdId(udId);
+                        Agents agent = agentsService.findById(device.getAgentId());
+                        SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                    }
+
                 }
             }
 
@@ -336,12 +340,16 @@ public class AgentKeepWsController {
             if (platform.equals("android")) {
                 if ("sas".equals(jsonObject.getStr("msg"))) {
                     Integer port = (Integer) jsonObject.get("port");
-                    devicesService.update(new LambdaUpdateWrapper<Devices>()
-                            .eq(Devices::getUdId, udId)
-                            .set(Devices::getDeviceUrl, host + ":" + port));
-                    Devices device = devicesService.findByUdId(udId);
-                    Agents agent = agentsService.findById(device.getAgentId());
-                    SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                    // 有可能转发的port是null
+                    if (port != null) {
+                        devicesService.update(new LambdaUpdateWrapper<Devices>()
+                                .eq(Devices::getUdId, udId)
+                                .set(Devices::getDeviceUrl, host + ":" + port));
+                        Devices device = devicesService.findByUdId(udId);
+                        Agents agent = agentsService.findById(device.getAgentId());
+                        SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                    }
+
                 }
             }
 
