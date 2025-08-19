@@ -8,8 +8,11 @@ services:
       - SONIC_EUREKA_PASSWORD
       - SONIC_EUREKA_PORT
       - SONIC_EUREKA_HOST=sonic-server-eureka
+      - TZ=Asia/Shanghai
     volumes:
       - ./logs/:/logs/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - sonic-network
     ports:
@@ -24,8 +27,11 @@ services:
       - SONIC_EUREKA_HOST=sonic-server-eureka
       - SECRET_KEY
       - EXPIRE_DAY
+      - TZ=Asia/Shanghai
     volumes:
       - ./logs/:/logs/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
       - sonic-server-eureka
     networks:
@@ -57,10 +63,13 @@ services:
       - LDAP_PASSWORD
       - LDAP_URL
       - LDAP_OBJECT_CLASS
+      - TZ=Asia/Shanghai
     networks:
       - sonic-network
     volumes:
       - ./logs/:/logs/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
       - sonic-server-eureka
     restart: on-failure
@@ -75,6 +84,7 @@ services:
       - SONIC_SERVER_PORT
       - SECRET_KEY
       - EXPIRE_DAY
+      - TZ=Asia/Shanghai
     networks:
       - sonic-network
     volumes:
@@ -83,6 +93,8 @@ services:
       - ./recordFiles/:/recordFiles/
       - ./packageFiles/:/packageFiles/
       - ./logs/:/logs/
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
       - sonic-server-eureka
     restart: on-failure
