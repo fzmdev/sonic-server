@@ -325,12 +325,15 @@ public class AgentKeepWsController {
                     Integer port = (Integer) jsonObject.get("wda");
                     // 有可能转发的port是null
                     if (port != null) {
+                        log.info("设备:{}, 获取wda端口成功, 端口: {}", udId, port);
                         devicesService.update(new LambdaUpdateWrapper<Devices>()
                                 .eq(Devices::getUdId, udId)
                                 .set(Devices::getDeviceUrl, host + ":" + port));
                         Devices device = devicesService.findByUdId(udId);
                         Agents agent = agentsService.findById(device.getAgentId());
                         SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                    } else {
+                        log.error("设备:{}, 获取wda端口失败", udId);
                     }
 
                 }
@@ -349,7 +352,6 @@ public class AgentKeepWsController {
                         Agents agent = agentsService.findById(device.getAgentId());
                         SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
                     }
-
                 }
             }
 
