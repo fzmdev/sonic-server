@@ -480,9 +480,9 @@ public class AgentKeepWsController {
                 headers.set("X-Access-Token", atmpToken);
                 HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
                 ResponseEntity<String> stringResponseEntity = restTemplate.postForEntity(url, req, String.class);
-                log.info("[WS:{}] 已同步设备信息到ATMP: {}, 返回: {}", name, url, stringResponseEntity.getBody());
+                log.info("[WS:{}] 同步设备udId: {}到ATMP成功, 返回: {}", name, udId, stringResponseEntity.getBody());
             } catch (Exception e) {
-                log.warn("[WS:{}] 同步ATMP失败: {}", name, e.toString());
+                log.warn("[WS:{}] 同步设备udId: {}到ATMP失败: {}", name, udId, e.toString());
             }
         }
 
@@ -504,9 +504,9 @@ public class AgentKeepWsController {
                 headers.set("X-Access-Token", atmpToken);
                 HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
                 ResponseEntity<String> stringResponseEntity = restTemplate.exchange(url, HttpMethod.PUT, req, String.class);
-                log.info("[WS:{}] 已上报心跳到ATMP: {}, 返回: {}", name, url, stringResponseEntity.getBody());
+                log.info("[WS:{}] 上报设备udId: {}心跳到ATMP成功, 返回: {}", name, udId, stringResponseEntity.getBody());
             } catch (Exception e) {
-                log.warn("[WS:{}] 上报心跳失败: {}", name, e.toString());
+                log.warn("[WS:{}] 上报设备udId: {}心跳失败: {}", name, udId, e.toString());
             }
         }
     }
