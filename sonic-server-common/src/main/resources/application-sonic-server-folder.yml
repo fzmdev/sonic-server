@@ -10,6 +10,6 @@ spring:
 # IP address of the gateway 网关的IP地址
 gateway:
   # 打包使用
-  host: http://${SONIC_SERVER_HOST:172.16.37.180}:${SONIC_SERVER_PORT:3000}/server
+#  host: http://${SONIC_SERVER_HOST:172.16.37.180}:${SONIC_SERVER_PORT:3000}/server
   # 调试使用
-#  host: http://${SONIC_SERVER_HOST:10.0.90.32}:${SONIC_SERVER_PORT:3000}/server
+  host: http://${SONIC_SERVER_HOST:10.0.90.32}:${SONIC_SERVER_PORT:3000}/server
