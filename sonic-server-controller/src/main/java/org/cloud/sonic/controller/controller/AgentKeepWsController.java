@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.cloud.sonic.controller.mapper.AgentDeviceMapper;
 import org.cloud.sonic.controller.models.domain.Agents;
 import org.cloud.sonic.controller.models.domain.Devices;
+import org.cloud.sonic.controller.models.interfaces.PlatformType;
 import org.cloud.sonic.controller.services.AgentsService;
 import org.cloud.sonic.controller.services.DevicesService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -272,7 +273,7 @@ public class AgentKeepWsController {
          */
         private void scheduleReconnect() {
             if (!running.get()) return;
-            
+
             int currentRetry = retry.get();
             if (currentRetry >= maxRetryAttempts) {
                 log.warn("[WS:{}] 已达到最大重试次数 {}，停止重连", name, maxRetryAttempts);
@@ -285,9 +286,9 @@ public class AgentKeepWsController {
                         .set(Devices::getDeviceUrl, ""));
                 return;
             }
-            
+
             retry.getAndIncrement();
-            long delay = Math.min(maxDelaySeconds, 
+            long delay = Math.min(maxDelaySeconds,
                     (long) (baseDelaySeconds * Math.pow(2, Math.min(currentRetry, 5))));
             log.info("[WS:{}] {} 秒后重连（第 {}/{} 次）", name, delay, currentRetry + 1, maxRetryAttempts);
             SCHEDULER.schedule(this::doConnect, delay, TimeUnit.SECONDS);
@@ -311,46 +312,48 @@ public class AgentKeepWsController {
             log.info("[WS:{}] url: {}", name, this.url);
 
             // 从ws链接中提取参数
-            Map<String, String> paramsMap = parseWsParams(this.url);
-            String platform = paramsMap.get("platform");
-            String udId = paramsMap.get("udId");
-            String host = paramsMap.get("host");
+            if (name.contains("-main")) {
+                Map<String, String> paramsMap = parseWsParams(this.url);
+                String platform = paramsMap.get("platform");
+                String udId = paramsMap.get("udId");
+                String host = paramsMap.get("host");
 
-            JSONObject jsonObject = JSONUtil.parseObj(data);
-            log.info("[WS:{}] WS返回的json消息: {}", name, jsonObject.toString());
+                JSONObject jsonObject = JSONUtil.parseObj(data);
+                log.info("[WS:{}] WS返回的json消息: {}", name, jsonObject.toString());
 
-            // iOS连接成功的消息, 更新wda
-            if (platform.equals("ios")) {
-                if ("openDriver".equals(jsonObject.getStr("msg"))) {
-                    Integer port = (Integer) jsonObject.get("wda");
-                    // 有可能转发的port是null
-                    if (port != null) {
-                        log.info("设备:{}, 获取wda端口成功, 端口: {}", udId, port);
-                        devicesService.update(new LambdaUpdateWrapper<Devices>()
-                                .eq(Devices::getUdId, udId)
-                                .set(Devices::getDeviceUrl, host + ":" + port));
-                        Devices device = devicesService.findByUdId(udId);
-                        Agents agent = agentsService.findById(device.getAgentId());
-                        SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
-                    } else {
-                        log.error("设备:{}, 获取wda端口失败", udId);
+                // iOS连接成功的消息, 更新wda
+                if (platform.equals("ios")) {
+                    if ("openDriver".equals(jsonObject.getStr("msg"))) {
+                        Integer port = (Integer) jsonObject.get("wda");
+                        // 有可能转发的port是null
+                        if (port != null) {
+                            log.info("设备:{}, 获取wda端口成功, 端口: {}", udId, port);
+                            devicesService.update(new LambdaUpdateWrapper<Devices>()
+                                    .eq(Devices::getUdId, udId)
+                                    .set(Devices::getDeviceUrl, host + ":" + port));
+                            Devices device = devicesService.findByUdId(udId);
+                            Agents agent = agentsService.findById(device.getAgentId());
+                            SCHEDULER.execute(() -> syncDevicePhone(udId, "ios", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                        } else {
+                            log.error("设备:{}, 获取wda端口失败", udId);
+                        }
+
                     }
-
                 }
-            }
 
-            // android连接成功的消息, 更新agent转发的地址
-            if (platform.equals("android")) {
-                if ("sas".equals(jsonObject.getStr("msg"))) {
-                    Integer port = (Integer) jsonObject.get("port");
-                    // 有可能转发的port是null
-                    if (port != null) {
-                        devicesService.update(new LambdaUpdateWrapper<Devices>()
-                                .eq(Devices::getUdId, udId)
-                                .set(Devices::getDeviceUrl, host + ":" + port));
-                        Devices device = devicesService.findByUdId(udId);
-                        Agents agent = agentsService.findById(device.getAgentId());
-                        SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                // android连接成功的消息, 更新agent转发的地址
+                if (platform.equals("android")) {
+                    if ("sas".equals(jsonObject.getStr("msg"))) {
+                        Integer port = (Integer) jsonObject.get("port");
+                        // 有可能转发的port是null
+                        if (port != null) {
+                            devicesService.update(new LambdaUpdateWrapper<Devices>()
+                                    .eq(Devices::getUdId, udId)
+                                    .set(Devices::getDeviceUrl, host + ":" + port));
+                            Devices device = devicesService.findByUdId(udId);
+                            Agents agent = agentsService.findById(device.getAgentId());
+                            SCHEDULER.execute(() -> syncDevicePhone(udId, "android", host, port, true, device.getModel(), device.getVersion(), device.getSize(), agent.getTideviceSocket()));
+                        }
                     }
                 }
             }
@@ -388,10 +391,12 @@ public class AgentKeepWsController {
         @Override
         public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
             log.info("[WS:{}] 收到 PONG", name);
-            Map<String, String> paramsMap = parseWsParams(this.url);
-            String udId = paramsMap.get("udId");
-            String host = paramsMap.get("host");
-            SCHEDULER.execute(() -> sendHeart(udId, host));
+            if (name.contains("-main")) {
+                Map<String, String> paramsMap = parseWsParams(this.url);
+                String udId = paramsMap.get("udId");
+                String host = paramsMap.get("host");
+                SCHEDULER.execute(() -> sendHeart(udId, host));
+            }
             webSocket.request(1);
             return CompletableFuture.completedFuture(null);
         }
@@ -509,6 +514,30 @@ public class AgentKeepWsController {
                 log.info("[WS:{}] 上报设备udId: {}心跳到ATMP成功, 返回: {}", name, udId, stringResponseEntity.getBody());
             } catch (Exception e) {
                 log.warn("[WS:{}] 上报设备udId: {}心跳失败: {}", name, udId, e.toString());
+
+                // 心跳异常时，调用syncDevicePhone方法同步设备状态
+                try {
+                    Devices device = devicesService.findByUdId(udId);
+                    if (device != null) {
+                        Agents agent = agentsService.findById(device.getAgentId());
+                        String platform = device.getPlatform() == PlatformType.ANDROID ? "android" : "ios";
+                        Integer port = null;
+                        if (StrUtil.isNotBlank(device.getDeviceUrl())) {
+                            String[] parts = device.getDeviceUrl().split(":");
+                            if (parts.length > 1) {
+                                port = Integer.parseInt(parts[1]);
+                            }
+                        }
+                        if (port != null) {
+                            log.warn("[WS:{}] 上报设备udId: {}心跳失败, 执行同步逻辑", name, udId);
+                            syncDevicePhone(udId, platform, host, port, true, device.getModel(),
+                                    device.getVersion(), device.getSize(),
+                                    agent != null ? agent.getTideviceSocket() : null);
+                        }
+                    }
+                } catch (Exception syncException) {
+                    log.warn("[WS:{}] 心跳异常后同步设备状态失败: {}", name, syncException.toString());
+                }
             }
         }
     }
