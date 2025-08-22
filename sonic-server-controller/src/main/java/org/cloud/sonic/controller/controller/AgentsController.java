@@ -259,7 +259,7 @@ public class AgentsController {
         if (tideviceSocket != null) {
             agent.setTideviceSocket(tideviceSocket);
             agentsService.updateById(agent);
-            agentsService.updateAgentsByLockVersion(agent);
+            // agentsService.updateAgentsByLockVersion(agent);
         }
 
         return new RespModel<>(RespEnum.HANDLE_OK);
