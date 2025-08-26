@@ -29,6 +29,7 @@ import org.cloud.sonic.controller.models.domain.Devices;
 import org.cloud.sonic.controller.models.interfaces.PlatformType;
 import org.cloud.sonic.controller.services.AgentsService;
 import org.cloud.sonic.controller.services.DevicesService;
+import org.cloud.sonic.controller.tools.TokenManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -102,6 +103,9 @@ public class AgentKeepWsController {
     @Value("${sonic.websocket.retry.max-delay:30}")
     private int maxDelaySeconds;
 
+    @Autowired
+    private TokenManager tokenManager;
+
     // 新增：去重保存每条连接，避免定时器重复创建
     private final ConcurrentMap<String, WsConnection> connections = new ConcurrentHashMap<>();
 
@@ -114,7 +118,8 @@ public class AgentKeepWsController {
             String devicePlatform = devices.getDevicePlatform();
             String secretKey = devices.getSecretKey();
             String udId = devices.getUdId();
-            String token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsic29uaWMiLCIxZDRkMDlkZS02OTRlLTQwZDktODYwNy00ZmMyMmRlZDIwMTYiXSwiZXhwIjoxNzU1ODI5NDI0fQ.UMqdG4KchPaAEX4CbuBzWStCeqgc31z0JYsyR8zriVg";
+            // String token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsic29uaWMiLCIxZDRkMDlkZS02OTRlLTQwZDktODYwNy00ZmMyMmRlZDIwMTYiXSwiZXhwIjoxNzU1ODI5NDI0fQ.UMqdG4KchPaAEX4CbuBzWStCeqgc31z0JYsyR8zriVg";
+            String token = tokenManager.getToken();
 
             String wsMainUrl = StrUtil.format(WS_URL_MAIN, host, port, devicePlatform, secretKey, udId, token);
             String wsTerminalUrl = StrUtil.format(WS_URL_TERMINAL, host, port, devicePlatform, secretKey, udId, token);
