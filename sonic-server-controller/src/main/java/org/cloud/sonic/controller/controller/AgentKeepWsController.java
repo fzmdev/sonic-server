@@ -484,7 +484,7 @@ public class AgentKeepWsController {
                 body.put("resolution", size);
                 body.put("location", "sonic");
                 body.put("isServer", false);
-                body.put("deviceGroup", "group_all");
+                // body.put("deviceGroup", "group_all");
                 body.put("tideviceSocket", tideviceSocket);
 
                 HttpHeaders headers = new HttpHeaders();
