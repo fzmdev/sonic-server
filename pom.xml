@@ -26,7 +26,7 @@
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
-        <current.version>SONIC_VERSION</current.version>
+        <current.version>2.7.4.4</current.version>
     </properties>
 
     <dependencyManagement>

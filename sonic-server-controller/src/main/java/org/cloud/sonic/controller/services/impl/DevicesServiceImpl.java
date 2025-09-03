@@ -366,6 +366,10 @@ public class DevicesServiceImpl extends SonicServiceImpl<DevicesMapper, Devices>
         if (jsonMsg.getString("status") != null) {
             devices.setStatus(jsonMsg.getString("status"));
         }
+        // 根据client传过来的信息, 修改设备转发的url
+        if (jsonMsg.getString("deviceUrl") != null) {
+            devices.setDeviceUrl(jsonMsg.getString("deviceUrl"));
+        }
         save(devices);
     }
 
